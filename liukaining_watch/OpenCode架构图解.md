@@ -1,7 +1,7 @@
 # OpenCode 架构图解
 
-> **文档版本 v2026.06.15** · 审查日期 2026-06-15  
-> **代码基准** · 分支 `dev` · commit `5d0f866` · 包版本 `opencode@1.17.7`  
+> **文档版本 v2026.06.15** · 审查日期 2026-06-15
+> **代码基准** · 分支 `dev` · commit `5305247f0` · 包版本 `opencode@1.17.7`
 > 历史快照：[VERSIONS.md](./VERSIONS.md) · 勘误记录：[versions/2026-06-15/META.md](./versions/2026-06-15/META.md)
 
 本文基于仓库实际代码整理。**图表统一使用 PlantUML**，并通过自托管 [Kroki](https://docs.kroki.io/) 生成 SVG。
@@ -822,8 +822,9 @@ start
 partition "DB Transaction" {
   :run registered projectors;
   :SessionProjector 更新读模型;
+  :run optional local commit hook;
+  :upsert aggregate sequence;
   :insert event row;
-  :bump aggregate sequence;
 }
 
 :notify aggregate subscribers;
@@ -941,8 +942,15 @@ end note
 SessionExecution.wake(sessionID)
   → SessionStore.get(sessionID) → location
   → LocationServiceMap.get(location)
-  → SessionRunner.run({ sessionID })
+  → SessionRunner.run({ sessionID, force: false })
+
+SessionExecution.resume(sessionID)
+  → SessionStore.get(sessionID) → location
+  → LocationServiceMap.get(location)
+  → SessionRunner.run({ sessionID, force: true })
 ```
+
+**wake vs resume：** `wake` 是 advisory（force=false），idle 时启动，draining 时 coalesce；`resume` 是 explicit drain（force=true），可升级 pending wake。
 
 ---
 
@@ -978,7 +986,7 @@ title V2 工具注册与执行
 |注册阶段|
 start
 :BuiltInTools.locationLayer;
-:Plugin register;
+note right: Location plugin tool registration\n是 follow-up（待 plugin lifecycle 完善）
 :ApplicationTools 进程全局;
 :ToolRegistry.register overlay;
 
@@ -1072,6 +1080,8 @@ end
 | `general` | subagent | 多步研究；deny todowrite |
 | `explore` | subagent | 只读探索；deny edit/bash 等 |
 
+**并发限制：** 最多 4 个 subagent 并发执行（`TaskSemaphore`）。
+
 源码：`packages/opencode/src/tool/task.ts` · `agent/subagent-permissions.ts`。
 
 ---
@@ -1124,8 +1134,9 @@ endif
 
 note right
   **Epoch 替换触发**
-  Agent / Model switch
-  Compaction ended
+  AgentSwitched event/projector 路径存在
+  public SessionV2.switchAgent: 当前不可用
+  Model switch / Compaction ended
   Session Move → clear
 end note
 
@@ -1166,7 +1177,8 @@ start
 :估算 model-visible tokens;
 
 if (request > contextWindow - reserve?) then (是)
-  :Compaction hidden agent;
+  :Compaction summary request;
+  note right: 使用当前 resolved model\nLLM.request(messages=[summaryPrompt], tools=[])
   :compaction.started;
   :compaction.ended;
   :Context Epoch replacement;
@@ -1290,7 +1302,7 @@ end note
 
 ## 19. 架构认知要点
 
-读代码或对照本文时，以下结论已与 **dev@5d0f866** 源码核对：
+读代码或对照本文时，以下结论已与 **dev@5305247f0** 源码核对：
 
 | 常见误解 | 实际情况 |
 |---------|---------|
@@ -1306,4 +1318,4 @@ end note
 
 ---
 
-*对照 dev@5d0f866 · opencode@1.17.7 · 2026-06-15*
+*对照 dev@5305247f0 · opencode@1.17.7 · 2026-06-15*

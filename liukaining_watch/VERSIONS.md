@@ -6,7 +6,7 @@ OpenCode 迭代很快，每次重大变更应新增一个日期快照，**不要
 
 | 日期 | 文档 | 包版本 | Git Commit | 说明 |
 |------|------|--------|------------|------|
-| **2026-06-15** | [versions/2026-06-15/OpenCode架构图解.md](./versions/2026-06-15/OpenCode架构图解.md) | opencode **1.17.7** | `5d0f866` | 审查勘误 + 专家级图解重构（Mermaid/PlantUML） |
+| **2026-06-15** | [versions/2026-06-15/OpenCode架构图解.md](./versions/2026-06-15/OpenCode架构图解.md) | opencode **1.17.7** | `5d0f866` → `5305247f0` | 审查勘误 + 专家级图解重构（Mermaid/PlantUML） |
 | _latest_ | [OpenCode架构图解.md](./OpenCode架构图解.md) | 同左 | 同左 | 始终指向最新审查结果 |
 
 ## 如何维护新版本

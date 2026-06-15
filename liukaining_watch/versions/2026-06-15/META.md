@@ -50,6 +50,16 @@
 - `specs/v2/session.md` 中 V1 Runtime Context Parity 表仍有多项 `partial` / `missing`
 - SDK 中 `Session2`（Instance）与 `Session3` / `client.v2.session`（V2 HttpApi）并存
 
+## v2026.06.15 第五次修订（dev@5305247f0）
+
+- 更新代码基准：`5d0f866` → `5305247f0`
+- §11.2 EventV2 commit 顺序修正：projectors → commit hook → sequence → event row
+- §12 SessionExecution 补充 wake/resume force 区分
+- §13.2 工具注册补充 Plugin tool registration 是 follow-up
+- §14 子 Agent 补充并发限制（max 4）
+- §15 Context Epoch 补充 switchAgent public API 当前不可用
+- §16 Compaction 修正：使用当前 resolved model，非 hidden agent
+
 ## v2026.06.15 第四次修订
 
 - 主文档图表 **全部统一为 PlantUML**（移除 Mermaid）

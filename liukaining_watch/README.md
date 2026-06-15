@@ -26,7 +26,7 @@ python3 liukaining_watch/scripts/embed-kroki-images.py
 
 ## 当前版本
 
-- 文档：**v2026.06.15** · 代码：`dev@5d0f866` · `opencode@1.17.7`
+- 文档：**v2026.06.15** · 代码：`dev@5305247f0` · `opencode@1.17.7`
 - Kroki：**https://kroki.thetamind.ai/**
 
 ## 文档结构
