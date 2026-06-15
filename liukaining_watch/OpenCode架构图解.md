@@ -4,7 +4,12 @@
 > **代码基准** · 分支 `dev` · commit `5d0f866` · 包版本 `opencode@1.17.7`  
 > 历史快照：[VERSIONS.md](./VERSIONS.md) · 勘误记录：[versions/2026-06-15/META.md](./versions/2026-06-15/META.md)
 
-本文基于仓库实际代码整理。**Mermaid** 块在 GitHub / Cursor 中可直接预览；**PlantUML** 块需 PlantUML 插件或 [plantuml.com](https://www.plantuml.com/plantuml) 渲染，源文件亦在 [`diagram/`](./diagram/) 目录。
+本文基于仓库实际代码整理。**图表统一使用 PlantUML**，并通过自托管 [Kroki](https://docs.kroki.io/) 生成 SVG。
+
+- **Kroki 服务：** [https://kroki.thetamind.ai/](https://kroki.thetamind.ai/)
+- **如何看图：** 每张图下方有 `text` 代码框（Kroki 链接），**复制链接到浏览器打开**即可查看 SVG；同节另有 `plantuml` 代码框为可编辑源码
+- **更新链接：** 修改 PlantUML 源码后运行 `python3 liukaining_watch/scripts/embed-kroki-images.py`
+- 独立 `.puml` 见 [`diagram/`](./diagram/)
 
 ---
 
@@ -12,12 +17,12 @@
 
 | 层次 | 章节 | 粒度 | 图表类型 |
 |------|------|------|---------|
-| 鸟瞰 | §1 心智模型 · §2 系统上下文 | 全局 | Mermaid |
+| 鸟瞰 | §1 心智模型 · §2 系统上下文 | 全局 | PlantUML 组件图 |
 | 结构 | §3 Monorepo · §4 分层 · §5 HTTP 路由 | 模块级 | PlantUML + 表格 |
-| 核心 | §6 双执行栈 | 架构决策 | Mermaid + 对照表 |
-| 深潜 | §7 V1 路径 · §8 V2 路径 · §9 Coordinator · §10 Provider Turn | 调用链 | PlantUML 时序/活动 |
-| 机制 | §11 EventV2 · §12 Location · §13 工具权限 · §14 子 Agent | 子系统 | PlantUML + Mermaid |
-| 专题 | §15 Context Epoch · §16 Compaction · §17 Agent | 专题 | Mermaid |
+| 核心 | §6 双执行栈 | 架构决策 | PlantUML + 对照表 |
+| 深潜 | §7 V1 · §8 V2 · §9 Coordinator · §10 Turn | 调用链 | PlantUML 时序/活动 |
+| 机制 | §11 EventV2 · §12 Location · §13 工具 · §14 Subagent | 子系统 | PlantUML |
+| 专题 | §15 Context Epoch · §16 Compaction · §17 Agent | 专题 | PlantUML 活动/组件 |
 | 索引 | §18 源码 · §19 认知要点 | 查阅 | 表格 |
 
 ---
@@ -28,20 +33,76 @@ OpenCode 是 **Bun workspaces monorepo** 开源 AI 编程 Agent。本地运行�
 
 **当前代码态（2026-06-15）的关键事实：** 同一 HTTP Server（默认 `:4096`）上 **并存两套 Session 执行栈 + 两套 HTTP API**。
 
-```
-┌─ 交互路径（TUI / Web / Desktop 日常聊天）────────────────────────────┐
-│  sdk.client.session.prompt()                                           │
-│  → POST /session/{id}/message                                          │
-│  → SessionPrompt (V1) → SessionProcessor → LLM (AI SDK)                │
-└────────────────────────────────────────────────────────────────────────┘
+<!-- kroki:1 ok -->
 
-┌─ Durable 路径（V2 HttpApi / Public API / 演进方向）────────────────────┐
-│  client.v2.session.prompt()                                            │
-│  → POST /api/session/{id}/prompt                                       │
-│  → SessionV2.prompt → SessionInput.admit → SessionExecution.wake       │
-│  → SessionRunner → llm.stream → ToolRegistry → EventV2 → SQLite        │
-└────────────────────────────────────────────────────────────────────────┘
+**图 · 1. 心智模型**
+
+Kroki SVG 链接（复制到浏览器打开）：
+
+```text
+https://kroki.thetamind.ai/plantuml/svg/eNptVM9rE0EYve9f8VkvimTTrD-wPZRGktBgxGhiPKiHye6YDNmdXXZmtxXpqR4KCoKI4EVUPBQE6y2Yg4J_S5P2z_CbmU06Sb0s3857-70375vZbSFJKrMohIhyScJSFAc0dC7JIY0oJCFh3BEjxhOSkgj8OEpijsSOfBFSSKkvCR-E1KKIIQniXcYH8JyEgjqSSWRO_xzMPk5mR1-mn17D3zFM376ZfT7EJ1TbTcdJiD8iAwpr0x9fZ4fj0-_Ha0AE-CFDLdEeDeClA_Ck-6gJZXhM-_isUTGScfJM8WTGFFyP-jRAqOeprnD28-D0_dHswy_NyT3Tzdm35OKEch83DDvdbhs6NM1pCps31jduaf2hlMlCvMkxKu5T1fspLwsqBIt52XVd3Z8hXE20D9TfwS_xDXkkYRe4uaeYaETGA4pJp1ph4apXgZPJt5PJu7Px8fT3K20lrygjlxuNxvX6uqajkNmRW7R3kxTHI41CRQQjQ2rf73RhYeEKC66WI3xBpYKpdmmoHUNqL_W5gPlYxWkBo6ZvCK3WPTXZahM6tbsFGoaRBrUdKOHB4KUtW9KUFiLm68JeXaiY0kKMAkZp5-dBLUtJH8-dnaCnE6zfbtysb6wkmHv_DdFbCdGepQ5yiXwhx5630i33lvAmTzLpkiBic4aulzj1PepnUhnbJaNiYp4ql1gPM85pMRIvzbjJylsK_dyfKS1kbkxX1vq5naK2sIUHU1qI0d9X5zsgkvSJwJnUc8wZB3MNOg9aTFI9kqCPVyBjUMLv5vdnfk_1orkoBWRW1D1w9HrB0O_mWLjuFvaETSjU7qQsGFBHW9JsJbhNeYD_O-cfpImpnw==
 ```
+
+PlantUML 源码：
+
+```plantuml
+@startuml mental-model
+!theme plain
+skinparam componentStyle rectangle
+skinparam shadowing false
+title 心智模型 · 双栈双 API
+
+package "客户端" as clientsPkg {
+  [TUI / Web / Desktop] as tui
+  [Embed / V2 API 调用方] as v2client
+}
+
+package "opencode HTTP Server :4096" as httpPkg {
+  [Instance API\n/session/...] as instApi
+  [V2 HttpApi\n/api/session/...] as v2Api
+}
+
+together {
+  package "V1 交互路径" as v1Pkg #FFF3E0 {
+    [client.session.prompt] as v1sdk
+    [POST /session/(id)/message] as v1http
+    [SessionPrompt] as v1sp
+    [SessionProcessor] as v1proc
+    [LLM · AI SDK] as v1llm
+    v1sdk -down-> v1http
+    v1http -down-> v1sp
+    v1sp -down-> v1proc
+    v1proc -down-> v1llm
+  }
+
+  package "V2 Durable 路径" as v2Pkg #E8F5E9 {
+    [client.v2.session.prompt] as v2sdk
+    [POST /api/session/(id)/prompt] as v2http
+    [SessionV2.prompt] as v2sv2
+    [SessionInput.admit] as v2admit
+    [SessionExecution.wake] as v2wake
+    [SessionRunner] as v2run
+    v2sdk -down-> v2http
+    v2http -down-> v2sv2
+    v2sv2 -down-> v2admit
+    v2admit -down-> v2wake
+    v2wake -down-> v2run
+  }
+}
+
+database "EventV2 + SQLite" as db
+
+tui --> instApi
+v2client --> v2Api
+instApi --> v1Pkg
+v2Api --> v2Pkg
+v1proc ..> db : EventV2Bridge
+v2run --> db
+
+@enduml
+```
+
+
 
 **架构约束（读源码时的锚点）：**
 
@@ -58,44 +119,62 @@ OpenCode 是 **Bun workspaces monorepo** 开源 AI 编程 Agent。本地运行�
 
 ## 2. 系统上下文（C4 Context）
 
-```mermaid
-flowchart TB
-  subgraph Actors["使用者 / 集成方"]
-    Dev["开发者"]
-    Bot["Slack / GitHub Action"]
-    Ext["第三方 via SDK"]
-  end
+<!-- kroki:2 ok -->
 
-  subgraph OpenCodeLocal["OpenCode 本地运行时"]
-    CLI["CLI / TUI"]
-    Web["Web / Desktop App"]
-    Engine["Session 引擎 + Tools + LLM"]
-    DB[("SQLite")]
-  end
+**图 · 2. 系统上下文**
 
-  subgraph External["外部依赖"]
-    LLMProv["LLM Providers\nOpenAI / Anthropic / Gemini / Bedrock"]
-    MCP["MCP Servers"]
-    LSP["Language Servers"]
-  end
+Kroki SVG 链接（复制到浏览器打开）：
 
-  subgraph Cloud["云端产品 (SST, 独立部署)"]
-    Console["Console · 认证/计费"]
-    Ent["Enterprise"]
-  end
-
-  Dev --> CLI
-  Dev --> Web
-  Bot --> Ext
-  Ext --> Engine
-  CLI --> Engine
-  Web --> Engine
-  Engine --> DB
-  Engine --> LLMProv
-  Engine --> MCP
-  Engine --> LSP
-  Console -.->|账号/模型配置| Dev
+```text
+https://kroki.thetamind.ai/plantuml/svg/eNpVk99rE0EQx9_3rxjTlxZJA-qTD6UxabSYYuUiPqgPm7sxWbK3e9xuUosU2ociWrWWYn0pSkBUMKSCxaY_RPBvySXnf-HuXRJSjmNndr47O_OZu0WlaaibPge1rjT6WVcKjc80uaLr6CMEnDJBVIOJgIbUB1f6gRQotKPXOUKIrqaixnFKourUk2tM1OAp5QqJZtoohz_Ph-ef-r1X_d7O4OAFzBZuQCG9a44Q6moZQia62Ix29-LN7QxQBR62xgGHU7cBObjN9J1mFfKuZlIkoqrUY9Gw0-n3Xg4OTqHFKDjFu4nANkMmdULmXoCiID2EwWEnOvwR_3kXt18PPvxKxFy6lMPM0vXStVIRnhOAR4Xysrm48mD5iRW4nNnNh1g1m0VUDS0DyAdBElzDqg06qJQpD6KL94P9t3AVKlJyZdZyeSXRoagxgUbqUU2rVJmqnPtlpjFtu0o2CHG5bHqQMUdgNZQt5mGoHgtbfN7Wkxe6HsqAuRYK-kwwY9xCL5RuI-2E-5MkK4VVcDBsmRRJzHeDSX5DpUlreCnOVXAJWf9sb_j9qH_2NdrfglnHqcxlUhYmxWqjBjOlvH1GvKRQ0pz6ewJx93N8tJWLu-34-DTFlwatbsnMPgxCpnDERNu2zcwhm11IOI9ti9WMObHtNM2b2ilGI512jXraTZdkx4Cd8iygKdcymY4aBKNiYX5-wX6LcBPi4y_R7klu8K0dfdz5t_1m-LtLyCIKz_xA5D8h9DO-
 ```
+
+PlantUML 源码：
+
+```plantuml
+@startuml system-context
+!theme plain
+skinparam componentStyle rectangle
+skinparam shadowing false
+title 系统上下文 (C4 Context)
+
+actor "开发者" as dev
+actor "Slack / GitHub Action" as bot
+actor "第三方 via SDK" as ext
+
+rectangle "OpenCode 本地运行时" as local #E3F2FD {
+  [CLI / TUI] as cli
+  [Web / Desktop App] as web
+  [Session 引擎 + Tools + LLM] as engine
+  database "SQLite" as db
+}
+
+cloud "LLM Providers\nOpenAI / Anthropic / Gemini / Bedrock" as llm
+
+cloud "MCP Servers" as mcp
+cloud "Language Servers" as lsp
+
+rectangle "云端产品 (SST)" as cloudPkg #FAFAFA {
+  [Console · 认证/计费] as console
+  [Enterprise] as ent
+}
+
+dev --> cli
+dev --> web
+bot --> ext
+ext --> engine
+cli --> engine
+web --> engine
+engine --> db
+engine --> llm
+engine --> mcp
+engine --> lsp
+console ..> dev : 账号/模型配置
+
+@enduml
+```
+
+
 
 **边界说明：**
 
@@ -106,6 +185,18 @@ flowchart TB
 ---
 
 ## 3. Monorepo 包拓扑
+
+<!-- kroki:3 ok -->
+
+**图 · 3. Monorepo 包拓扑**
+
+Kroki SVG 链接（复制到浏览器打开）：
+
+```text
+https://kroki.thetamind.ai/plantuml/svg/eNplU82KE0EQvvdTlPEoIZhlLx5kMZugkEDcCbmIh96eYrY3Pd1Dd2cgiCcVFDx7E3wDT7IelhV8FiN721fY6p_86WW6vqru-uqrqjlxnlu_rBWYBrUwJXYbLha8Qsce-AusERrFpWZuIXXDLa9BmLoxGrUv_EohWBSe60oh89ITnhhtLDYG1p8__Ln5evvjy931x7_ffq5_vbu9-r6-eX93_YmxTAKdgZKUynXgDQN45ZfyNXAHdAbImyZCOgMs0S28Sa5gB58rF71LF11ksrd7qc-W2ksS8PsKNpp6G5UdeDg8GvVHp4l3MH4BK26rlEioyP58NptCgbZFG90X3scyCnROGj211AgP88eJ_J-QIMukdw2hENxww8wYdYaVdN6u4g3jyePCnclgCj0YF-E7VctK6nhBao_VgbihptihNkF9J12jo-Hx6DjpyvXM-6nGtr_npPborMxGM8SGLU1j3odHQBouabRZA7YhOjaCe3oamiIFTniahUr6Av__2sRGW8k9P-eOai9ejqWnUsMYzw9UDYz2lovtPrhd952NJShVJ05VB9jsehTMkIx2B7rdp3EdaHG2dtiYCMI2bUEcKoV3gKa_Ayx8Uwri3wF6Y9tkUlNd8sZBZzuPNLgiDvUyuhtB7nc6Uphe7sHctP0L9B4TI_Usk5DjCeSRPbOyrHCv4LQzKvPnjOwEdUm_O7sHX_lVOg==
+```
+
+PlantUML 源码：
 
 ```plantuml
 @startuml opencode-packages
@@ -171,6 +262,8 @@ loc --> ctools
 @enduml
 ```
 
+
+
 | 包 | 职责 |
 |----|------|
 | `opencode` | CLI、HTTP Server、Instance Bootstrap、V1 Session 编排 |
@@ -186,26 +279,50 @@ loc --> ctools
 
 七层模型：**由外向内，职责逐层收窄**。
 
-```mermaid
-flowchart TB
-  L0["L0 客户端\nTUI · Web · Desktop · SDK 集成"]
-  L1["L1 传输 & 实例\nHTTP :4096 · InstanceContext · Bootstrap"]
-  L2["L2 Location\nLocationServiceMap · 按 directory 隔离"]
-  L3["L3 Session 编排\nV1 SessionPrompt ∥ V2 SessionV2/Runner"]
-  L4["L4 持久化\nEventV2 · SessionProjector · SQLite"]
-  L5["L5 LLM\n@opencode-ai/llm · AI SDK 兼容层(V1)"]
-  L6["L6 能力\nTools · Permission · MCP · LSP · Plugin"]
-  L7["L7 控制面/云\nWorkspace 路由 · Console · Enterprise"]
+<!-- kroki:4 ok -->
 
-  L0 --> L1 --> L2
-  L1 --> L3
-  L2 --> L3
-  L3 --> L4
-  L3 --> L5
-  L2 --> L6
-  L3 --> L6
-  L1 --> L7
+**图 · 4. 运行时分层**
+
+Kroki SVG 链接（复制到浏览器打开）：
+
+```text
+https://kroki.thetamind.ai/plantuml/svg/eNpVk89P1EAUx-_zVzwhMXDY7O9d8WDApY3EkqwuLpdehu4II-1MMzOLclQjQSVE0WCi0SgHPZhovEBUxMQ_xewuy3_hmy3b2PTwvn1979P35tvOakOV6UYhqK4wPGK5kG4ypckFs8YiBnFIuSB6nYuYKhpBIKNYCiZMy2yGDBQLDBWrIfuvRK_RjrzLxSrcpqFmxHCDlcPfz4YfdgavDvvbW_1vD2DKK8DfrT3w6tOEGBmDkbAijZERdLjFcikISV8HE1jf_3Iw2D46_fzVF0u3FuDPESyzFRvmmV63DJSt-esTQDVg-aRzyZlzaxlIEXrH74cnL-Ai0t71Tp764trSUhMuVwozNdu_IPBERMAaUhh2z9jUVSmNNorGCbiI4LJbcucz4BJ4MqB2al-MVYupDR6wRTqabLDz-Hw1qTbh7PXL048_E2IJiQUkFjPEMrSY1oiB0-P9we6eL9rFcaqpsNBAPg_t0jjXLuVvdoVgKoGWYdItO1W3moFWcIz7ve-P-jv7vnA2MIkAe2wp985owFHuhscNS2gVpDWcitPI0KrgeYu-mJUxE4HssBzl-TCMbPPcgrUCptrF6YRQRYKLExUyhBoMH_7qP3mDjkoZatvZZCriyeJ4t9ho2uC1RqEZdle5SIA1a7BbdWYywDoMdj_1tw_P3h7kez-e-2JZqnUd04DZfnRVy3AkHfRXxYrr8w3rON-cvQjBbyeXu4JOEzR7pEqpKhO0a6zKiaqkqpo-raW5WtpbJ2SWiQ7-beQfiTE9AA==
 ```
+
+PlantUML 源码：
+
+```plantuml
+@startuml runtime-layers
+!theme plain
+skinparam componentStyle rectangle
+skinparam shadowing false
+title 运行时分层 (L0 → L7)
+
+top to bottom direction
+
+component "L0 客户端\nTUI · Web · Desktop · SDK" as L0 #E8EAF6
+component "L1 传输 & 实例\nHTTP :4096 · InstanceContext · Bootstrap" as L1 #E3F2FD
+component "L2 Location\nLocationServiceMap · 按 directory 隔离" as L2 #E0F2F1
+component "L3 Session 编排\nV1 SessionPrompt // V2 SessionV2/Runner" as L3 #F3E5F5
+component "L4 持久化\nEventV2 · SessionProjector · SQLite" as L4 #FCE4EC
+component "L5 LLM\n@opencode-ai/llm · AI SDK (V1)" as L5 #FFF3E0
+component "L6 能力\nTools · Permission · MCP · LSP · Plugin" as L6 #E8F5E9
+component "L7 控制面/云\nWorkspace · Console · Enterprise" as L7 #FAFAFA
+
+L0 --> L1
+L1 --> L2
+L1 --> L3
+L2 --> L3
+L3 --> L4
+L3 --> L5
+L2 --> L6
+L3 --> L6
+L1 --> L7
+
+@enduml
+```
+
+
 
 **L1 Instance 层要点：**
 
@@ -236,24 +353,66 @@ opencode 在 **单个进程** 内组装多棵路由树（`httpapi/server.ts`）�
 
 PlantUML 组件视图（源文件 [`diagram/http-server-routes.puml`](./diagram/http-server-routes.puml)）：
 
+<!-- kroki:5 ok -->
+
+**图 · 5. HTTP Server 路由与实例模型**
+
+Kroki SVG 链接（复制到浏览器打开）：
+
+```text
+https://kroki.thetamind.ai/plantuml/svg/eNptVLGOEzEQ7f0VQyooooUTQoICJSIHF6HTRbd3uQJd4XgnGyte27KdRBE6CWp-AIToKKhoKSiQ-Bi4-wtmvc7eBijWa8-8efM8M7sDH7gLq0qBsaiFKbC_CMH2Pbo1ur4zq4Ce3QkLrBCs4lIzv5TacscrEKayRqMOedgqBIcicF0q7ED8ghdmI3UJc648Mma5WPISobfLB9c_Pv7-8g5-foOb7--vv36GJw_vP37UA-7BOiPgNQN4dUSihlYOrb2sHdxasrZcp8aEhIhxjs6TZRlDKbhUZsbVEdeFQucjQTI1fmF0cEZNFNe4h0qOBHtxeAZZQYpOSPpwMo6Q-hqUlhBXXUVjTYXVAruqJNk6qjx6L43eS7iztbrmsoQMKmFptWFL61wqvNzRHUsvGiyuqQ87Lsjzw4hprH-LI0EwaPvNZdZ0u9dUVnY05nsauxKnB0nkMZ1r1gyGJSWj98SZtSzQ0fZ5ntolk9I9Had8A6f1hDWpHd90Uq9kdMHNpw-_3ryFC5zBeVPy5Glgk7B9ZrSm0atvRajciCWGCKSCXfiY9IoxLoJx0MtHL0nX2fmYVkLHxEJJUu5ZekO__zROGD1xn8apPadGtuemZrfweA_GtCH5MxOCqcDM2yiA3XAADVE999MHZJyc5DReqbrZ3bQZj-5lVVNhhrqAmvMf5pQfYHoAaeBq2tHK8ZnClptg_-Wnr6yy4ZZ-QDv6I7A_apFitA==
+```
+
+PlantUML 源码：
+
 ```plantuml
 @startuml opencode-http-server-routes
 !theme plain
 skinparam componentStyle rectangle
+skinparam shadowing false
 
-package "opencode 进程 · 默认 :4096" {
+package "opencode 进程 · 默认 :4096" as proc {
   [HttpApiApp] as app
-  package "InstanceHttpApi" { [sessionHandlers\n/session/* → V1] as inst }
-  package "Api @opencode-ai/server" { [SessionHandler\n/api/session/* → V2] as v2api }
-  package "Raw" { [uiRoute] [PtyConnectApi] }
+  package "RootHttpApi" as rootPkg {
+    [globalHandlers] as globalH
+    [controlPlaneHandlers] as controlH
+    [GET /doc OpenAPI] as openApi
+  }
+  package "InstanceHttpApi" as instPkg {
+    [sessionHandlers] as sessionH
+    [config / mcp / pty / file] as instMisc
+    [eventHandlers SSE] as eventH
+  }
+  package "Api @opencode-ai/server" as apiPkg {
+    [SessionHandler] as sessionV2H
+    [Message / Agent / Provider / FS] as apiMisc
+  }
+  package "Raw Router" as rawPkg {
+    [uiRoute 静态 Web UI] as uiRoute
+    [PtyConnectApi WebSocket] as ptyWs
+  }
 }
-[SDK / TUI / Web] --> app
-app --> inst
-app --> v2api
-note bottom of inst : POST /session/{id}/message
-note bottom of v2api : POST /api/session/{id}/prompt
+
+actor "SDK / TUI / Web" as clients
+clients --> app
+app --> rootPkg
+app --> instPkg
+app --> apiPkg
+app --> rawPkg
+
+note bottom of instPkg
+  Instance API · V1
+  POST /session/(sessionID)/message
+end note
+
+note bottom of apiPkg
+  V2 HttpApi · Durable
+  POST /api/session/(sessionID)/prompt
+end note
 @enduml
 ```
+
+
 
 **SDK 与路由的精确映射：**
 
@@ -285,32 +444,55 @@ note bottom of v2api : POST /api/session/{id}/prompt
 
 ### 6.2 汇合点：EventV2 + SQLite
 
-```mermaid
-flowchart LR
-  subgraph V1["V1 栈"]
-    SP["SessionPrompt"]
-    PR["SessionProcessor"]
-    BR["EventV2Bridge\n始终加载"]
-  end
+<!-- kroki:6 ok -->
 
-  subgraph V2["V2 栈"]
-    SV2["SessionV2"]
-    RN["SessionRunner"]
-    EV["EventV2 原生 publish"]
-  end
+**图 · 6.2 汇合点：EventV2 + SQLite**
 
-  subgraph Store["共享持久化"]
-    PJ["SessionProjector"]
-    DB[("SQLite")]
-  end
+Kroki SVG 链接（复制到浏览器打开）：
 
-  SP --> PR
-  PR --> BR
-  PR -.->|OPENCODE_EXPERIMENTAL_EVENT_SYSTEM| EV
-  SV2 --> RN --> EV
-  BR --> EV
-  EV --> PJ --> DB
+```text
+https://kroki.thetamind.ai/plantuml/svg/eNpdks1OFEEQx-_zFCUczaIMMVEPBo09iQkYZDYbDRjSO1POzjLb3enuXWOMB2OIq27Ag3KCgMaEgydORg0Xn4Ve4C2s6Vlw8NT18a-qX1f3vLFc236vgLTPiwZ5yXojkWKAOkORYHDFdrCHoAqei8Cs50JxzXuQyJ6SAoWN7YsCQWNiucgKrElMh6fyeS4yeMYLg4HNLSnd1mj87uD0y2i8PxwfvnUfh_DnB7ABtWqFcBXiRwu5xSBQBMIzhKnWLJB0CriBwSxMR1E0x67DywBgJUZjcimWNMHYp6XCqMvxhCypfUqRVyYno-7pPM1wVbiDDye_h-79_unRkde1fYKURkGjcee8rjy8P8m_qiOG_xBDmGY3oxvs1iXEVljhDcJacLkvBFZw2ps1PHCbeyef9kD120VuOl6Evpp6eI6LksrwsVJRB3Mbh8e_vo9Hr49_brjRtic0VmokyLkojO7_v8cuveP5vrqUSrnlbW6oVfUuvkPaLvfR9RPJpoHVTi4Q_K5mZrwDt4E9XmLLDxbZw-bdhTXWonMtfhI32eKqOPu6675tn33ecW-2ILaorjWlLAKc3JEYgnkUKf3P4C-Lq_PK
 ```
+
+PlantUML 源码：
+
+```plantuml
+@startuml dual-stack-convergence
+!theme plain
+skinparam componentStyle rectangle
+skinparam shadowing false
+title 双执行栈汇合 · EventV2 + SQLite
+
+package "V1 栈" as v1 #FFF3E0 {
+  [SessionPrompt] as sp
+  [SessionProcessor] as proc
+  [EventV2Bridge\n始终加载] as bridge
+  sp --> proc
+  proc --> bridge
+}
+
+package "V2 栈" as v2 #E8F5E9 {
+  [SessionV2] as sv2
+  [SessionRunner] as runner
+  [EventV2 原生 publish] as ev2
+  sv2 --> runner
+  runner --> ev2
+}
+
+package "共享持久化" as store #E3F2FD {
+  [SessionProjector] as pj
+  database "SQLite" as db
+  pj --> db
+}
+
+bridge --> ev2
+proc ..> ev2 : EXPERIMENTAL_EVENT_SYSTEM\n额外镜像 Step/Tool
+ev2 --> pj
+
+@enduml
+```
+
+
 
 **EventV2Bridge 职责澄清：**
 
@@ -322,6 +504,18 @@ flowchart LR
 ## 7. V1 交互路径（细节）
 
 TUI 发消息的完整调用链：
+
+<!-- kroki:7 ok -->
+
+**图 · 7. V1 交互路径**
+
+Kroki SVG 链接（复制到浏览器打开）：
+
+```text
+https://kroki.thetamind.ai/plantuml/svg/eNp1VMFuEzEQvfsrhp4SqUnUHveAWmilBgKN4rSnXtzNkFh4bWN7I3JEQohbBQcufEQ4IHrjwKcgNeIzGNubJqngkMQ7fvPmzczbHPkgXKgrBfODTqhlxzpT2cAehRlWCFYJqVmQQSFcHsCf2-Xdz_fw6xbGF324u_m0-vFx9W7JmCiDcTHILNHJUlqhA-zxk-fA0Xtp9OEeCA8U2EX0NQnQJZ6FYI-tTKCz8Xj4gCdzDJO2TPRvxKjWPIiACTPi_2Mp6WRcAsWnXdhg8AJax_2otZ0gFNhFGIu6NBOEsTFqhFPpg1skaAz4XfDpHHW4PHzi5GSadeUjY3GGncexTgGlkgTr-iyxm7fQah77J_sQOf0-iCnB9qGi6qrN4nyJIQ6sgOE5H0OvSeltctu9io6UyCIuVSR0U0FqW4c2YzxdjHgBqH3tkAappZ5usTSQmOtqPTDGbl8yRQFYLW-yNPABLQPY5LySKqB7SkXJKziBGQ3NuMWVngk9Ucjr6yD8a-hBmSHEe5-fplqsnZSeug69UXNste9RcZOpr7jdllJVl9aCooqIeBcxtMoCcrjl8E2NPjYPkNTnOGBcmKfgJi1TZ6Vpn1faovPUQt5LAgsVIJC2TimUSpENQdMBvsWyDghzKSA7LGWkJrbhSWbiojZrFdI16kn6NTYQEdWXFSkRKgniC5p49YAmG62ASjpHryennfSiEvj94TM0vtyijt_x0_hkbc1mLM_4-UtYOykZL_Z10S-AbLz6-n315Vvqi_NTmCpzLVQ3TZKxIyKlfxj2FwIHfE8=
+```
+
+PlantUML 源码：
 
 ```plantuml
 @startuml v1-tui-prompt
@@ -339,7 +533,7 @@ participant "opencode ToolRegistry" as Tools
 participant "EventV2Bridge" as Bridge
 
 TUI -> SDK: client.session.prompt(sessionID, parts, agent, model)
-SDK -> HTTP: POST /session/{id}/message
+SDK -> HTTP: POST /session/(sessionID)/message
 HTTP -> SP: prompt(input)
 
 SP -> RS: ensureRunning(sessionID)
@@ -369,6 +563,8 @@ SDK --> TUI: UI 更新 via SSE global.event
 @enduml
 ```
 
+
+
 **V1 特征：**
 
 - 内存循环 `SessionPrompt.runLoop`，工具在 Processor 内 inline settle。
@@ -380,6 +576,18 @@ SDK --> TUI: UI 更新 via SSE global.event
 ## 8. V2 Durable 路径（细节）
 
 ### 8.1 Prompt 准入 → 调度
+
+<!-- kroki:8 ok -->
+
+**图 · 8.1 Prompt 准入 → 调度**
+
+Kroki SVG 链接（复制到浏览器打开）：
+
+```text
+https://kroki.thetamind.ai/plantuml/svg/eNptUjtv1EAQ7vdXTFLlpDPFlRZ5kDtLuSjFgSO3aGPPkeXsXbM7viQtKEmTUAAFFRJF6JDoiJJU_BR0RlDxF7Jr7-UhXWeNv_leOxuGuKaqyGHaC0qtipICnhXCGKEkW6J9LBDKnAvJSFCOkPTg108YNUioT0_q44vZ5fu_P97VV98YKy2ZSEXJJUE_Fyjp0Wg5xoY46S0DNxAnvYW_h7KsqEUMHwOiqaX021GycNlae40pKd2ARtsLQdEhphXZj1YlWgh6Ucm-UjoTks_p4j7LOPE9bhDi5zuC0E0Hm4y1aSFYc6lCaKtcMT7QoOsnXcgwF1PUR13QaKoC1zuM2ZVmcxiCK59WOiweukmUhL7rHTHG9CjN8ckzhyDMWJQ4yGi7UXOZ4ffJB_CSL4UrEbQ68LjBZgh0KCFVhd1njOfkHcDSKox5bpABzJ1EIRzwCT4MwL1ujG86FimVDa_Fq30KYaz0BOqbt3--X_y_OZtdnv_7fF1__QJbu7sjqD-e11efHHfUUPc99QRtB8aRodWee1m99_JQYXZ9DFml-Z49wcZIq-PvDmV29wJPg6B9gnlPljlFUdrIGxZnT53dAus5Ehs=
+```
+
+PlantUML 源码：
 
 ```plantuml
 @startuml v2-prompt-admission
@@ -415,6 +623,8 @@ Client <-- SV2: Admitted receipt
 @enduml
 ```
 
+
+
 ### 8.2 Delivery 语义
 
 | 模式 | 行为 |
@@ -424,44 +634,76 @@ Client <-- SV2: Admitted receipt
 
 `session_input` 是 durable inbox；**Promoted 之前对模型不可见**。
 
-### 8.3 端到端数据流（Mermaid 总览）
+### 8.3 端到端数据流
 
-```mermaid
-flowchart TB
-  subgraph Admission["① Durable Admission"]
-    A1["SessionV2.prompt"] --> A2["SessionInput.admit"]
-    A2 --> A3["Event: Admitted"]
-    A3 --> A4[("session_input")]
-  end
+<!-- kroki:9 ok -->
 
-  subgraph Schedule["② Advisory Schedule"]
-    S1["SessionExecution.wake"] --> S2["RunCoordinator"]
-  end
+**图 · 8.3 端到端数据流**
 
-  subgraph Run["③ Location-scoped Run"]
-    R1["Runner.run"] --> R2["promote + Context Epoch"]
-    R2 --> R3["materialize tools"]
-    R3 --> R4["llm.stream"]
-    R4 --> R5["settle tools"]
-    R5 --> R1
-  end
+Kroki SVG 链接（复制到浏览器打开）：
 
-  subgraph Project["④ Projection"]
-    P1["EventV2 txn"] --> P2[("session_message")]
-  end
-
-  A1 --> S1
-  S1 --> R1
-  A3 --> P1
-  R4 --> P1
-  P2 --> SSE["SessionV2.events SSE"]
+```text
+https://kroki.thetamind.ai/plantuml/svg/eNpNUT1PwzAQ3f0rjq0VaoaOVIKikgGJAbVSV2SSgxgcO7IvbUEZYGNBggGJgYEvwYCgXZj6b5Dain-BnaCqi-179947613bEjeUpxIGzUbMiTeOpB6yNUowRcgkF4qRIInQb8LiYzy7mrhzfjeZX3_Nvy8ZK35uH2EnN_zQcbbjVFgrtCpY6cs2eljW_WaQGZ1m1FpCuyrLKeBO4cFwgIpKPRHGDrAV60B4Wquc8-T6A2G1OYNelGCcSyyWduEIo5zcIxjyU3QG3Vx1tDaxUJy0qRyeYU9H3LMaNtIZxuBYBTOYIScG4EUKTWBy1fKl_7MmhHXoaEU4IggzHSVlL-WERnApzhFIa2lLVMo0sGSQp2VpkXx2__1qDgwT4bDa78PFYvq-mH5u1UFYqM3vx3XW2JzdvFWffYF9o08wojLPKiG3BBqplXhSd_NjrBSv0EUeF6upo1dZ6PXClluJzhhro4rdvtkf0ji_HQ==
 ```
+
+PlantUML 源码：
+
+```plantuml
+@startuml v2-data-flow
+!theme plain
+title V2 端到端数据流
+
+|① Durable Admission|
+start
+:SessionV2.prompt;
+:SessionInput.admit;
+:Event Admitted;
+:session_input;
+
+|② Advisory Schedule|
+:SessionExecution.wake;
+:RunCoordinator;
+
+|③ Location-scoped Run|
+repeat
+  :Runner.run;
+  :promote + Context Epoch;
+  :materialize tools;
+  :llm.stream;
+  :settle tools;
+repeat while (需继续?) is (是)
+->否;
+
+|④ Projection|
+:EventV2 txn;
+:session_message;
+
+|⑤ Read|
+:SessionV2.events SSE;
+stop
+
+@enduml
+```
+
+
 
 ---
 
 ## 9. SessionRunCoordinator 状态机
 
 进程内 **每个 Session ID 最多一条 active drain chain**；不同 Session 可并发 drain。
+
+<!-- kroki:10 ok -->
+
+**图 · 9. SessionRunCoordinator 状态机**
+
+Kroki SVG 链接（复制到浏览器打开）：
+
+```text
+https://kroki.thetamind.ai/plantuml/svg/eNp9kTFOxDAQRXufYugSpGj7FGgLGjokSkRh2bMbC2fGjB1tSwcFCC5AQUUHLeI8bLgGThZQWC00lmb-8_9fmnlMWlLXeuCAZNhiZZjFOtKJpVrEVu2lBluE4LUjdbp_BlV1AEfWoxqecTqUrDlaQg3SUVHCDFb6HItS_ShbmGHtMRq0I7gbO0ayU9P17dXH2xOEzVptY38mCOb_vyPG5jXYYQfr55v--n6n33_cBqCEIl1IOacG9z0VES9KNRUnbsajpi4o4oQgbtkk4MW0ev9yBycYo2OC99fL_uHxq4FphhvMc8F8MfUJ7v6eEQ==
+```
+
+PlantUML 源码：
 
 ```plantuml
 @startuml opencode-coordinator-fsm
@@ -479,6 +721,8 @@ note right of Draining : 每 Session 一条 drain chain
 @enduml
 ```
 
+
+
 | 操作 | 语义 |
 |------|------|
 | `run(sessionID)` | 显式 drain；加入当前 chain 或启动新 chain |
@@ -493,6 +737,18 @@ note right of Draining : 每 Session 一条 drain chain
 ## 10. SessionRunner · 单次 Provider Turn
 
 V2 与 V1 的根本差异：**每 turn 恰好一次 `llm.stream`**，工具在 stream  handler 内 eager fiber settle，turn 结束前 await 全部 fibers。
+
+<!-- kroki:11 ok -->
+
+**图 · 10. SessionRunner · 单次 Provider Turn**
+
+Kroki SVG 链接（复制到浏览器打开）：
+
+```text
+https://kroki.thetamind.ai/plantuml/svg/eNotkU1Ow0AMhfdzCrNrhNJFl-mCVggJJMQCEPtpxiGWPD-acVKKegQOAVsOhsQtcBI2Mxr7e8_Pml0Rm2XwDDFhaKPDetzUKceRHOZahhzMhfToERJbCub8hKVQDI9DCJjPMOtNk4fwrOxeBH2SrWnuY2tFOfj5_Pr9_oBL2L9ikJfNuiBjOyHXMQi-Cdyk2PYK6FQfBYFCGqb-_6RbKhLzSYE2-mRbueseEB06RbwVzGSZ3hEkRi5KMft1kYzWb82xJ0ZYLc-rCqjACkfNURkA6mA1ierWMlegWwatAjQFRVTW0QGzGs5MxjKwpgJALmrpkMVWC880Yh0DnyANB6bSz1hw1Bk95wymsUdLsnhOKTNytA76Zbmt0SuZneL6F-YPx7aOjA==
+```
+
+PlantUML 源码：
 
 ```plantuml
 @startuml opencode-v2-provider-turn
@@ -514,6 +770,8 @@ endwhile
 stop
 @enduml
 ```
+
+
 
 **硬限制与边界行为：**
 
@@ -538,6 +796,18 @@ Runner 内待办清单见 `runner/llm.ts` 文件头注释（`[x]` / `[ ]` 跟踪
 | Live-only | ❌ | ❌ | ❌ | Text.Delta, Reasoning.Delta, Compaction progress |
 
 ### 11.2 同步事件提交管道
+
+<!-- kroki:12 ok -->
+
+**图 · 11.2 同步事件提交管道**
+
+Kroki SVG 链接（复制到浏览器打开）：
+
+```text
+https://kroki.thetamind.ai/plantuml/svg/eNpNkDFLAzEUx_d8imcnHazQ8W4ptUW6iSdOLrnc6zVyl8TkpVJEsHPBRXARhG6d1MFN8NPoab-FuTsLjvn_f_m95PUdcUu-LABnqGjW2xe6LCWxHZpiiWAKLhUjSQXCqCbOet2WSOZKNAl8P682i3vGGhWLtpjxaSHddNcFsLXvxYxFKU60xcPGAbnnNnPn6vNjGUGCzkmtxsp46jbNCTq0M8zGw3DTBLukAEBnOIBTy5Xjoj534JoBRNYrsJhLR2gxA2P1BQrS1sV1-yc_3qZQPb5VD68_L-_VevX1tGwgqcI8ah8LVl81YepLAzzPg5sTgsNLj0pgzG7Cb5QmOZn_r33qhJUp1nOjo0KnvBh4BweQJCOo7tab20Vc70obxvqosrB79gvOUJLs
+```
+
+PlantUML 源码：
 
 ```plantuml
 @startuml eventv2-commit
@@ -564,6 +834,8 @@ stop
 @enduml
 ```
 
+
+
 ### 11.3 Session 事件词汇（精选）
 
 | 事件 | 投影目标 |
@@ -585,51 +857,83 @@ stop
 
 打开项目目录时 boot 的 Effect Layer 集合（`location-layer.ts`），**Idle TTL 60 分钟**。
 
+<!-- kroki:13 ok -->
+
+**图 · 12. LocationServiceMap**
+
+Kroki SVG 链接（复制到浏览器打开）：
+
+```text
+https://kroki.thetamind.ai/plantuml/svg/eNplVE1rFEEQvfevaONFFxNiJKIeNJu4IwsJrtlFD-qhM1Mz225P99jdk-wggggJ8SMIXg2IiLDX4MVDwD_jRD3lL9gfM5MM3qreq66uetXVK0oTqfOUYSZCoqng8wrkNg1BoQt6DCngjBHKkZpQnhFJUhyKNBMcuB7qggGWEGrCEwbnQtSYRGKH8gTHhClAmmoTuV7dMPQXbJAMnxwelG-_lPt75dFrhJpUeK6OXdiE-Am_FFHLCVlcwTtCTlRGQujfvXN5DhNlK0fIIBOSmJOrRIGDt4wxmCT4Ym8xWAqu4hcI48drgsc0eWr5ME4s0k1MKw-XHESsbcEByxPKKzRzjjtNNGGiOu5tCweUwbBQGlLHxMqCj4gOxyAdsuNtl1kXPqkurDucUMaqe5S1HehymVI1TPVqTpnuc-VDChXqqY0xuoAEHoLDJcS-uzQlPKryhWmEXp5TZgAypUoZVbEJwiMhmHJKZYbwSt0Ilns3vVJn0bUMBmgTQ7INUcM5zwbYxJuQUKWl71Xbm2rmfq6z3LwdIaEhDdaqtDeFMLfjd-WB8Vx5wbXecrDsyxuCK2Ez5xzkhoiAuWyptf7jvUbOtFwlqRPAUVsWoFw1E7mX04jU4qoagZbwrRgzgCain5omHEqtVb-QjVy7J-3rrJxW2918ShklsnBtk3zquw5M34utrkciEpV4kbD4gxyUPhvV88q12c124Pn52_U6oHotLFYNHtUPwGKV2q04XwpCXGjAW0JrkWIRN6EYdzp_fn76PXtX7s7Ko1enx_u_fhyUh7Nm5XG5t3t6_KbTMbFVD-4FnLnNyA3U23YraaxuljHqU7hp4ZPvs3Lvfbn7rfzwFbmL-5H5L0aj9VudDr6-iM1f8vfjZ8esCqEtOpDimfk91kRWLJg5SVDjbqxBWh6B2QTbFkIrxjQfIfoHwuPKXg==
+```
+
+PlantUML 源码：
+
 ```plantuml
 @startuml location-services
 !theme plain
+skinparam componentStyle rectangle
+skinparam shadowing false
 title LocationServiceMap 服务分层
 
-rectangle "Location.Ref\n{ directory, workspaceID? }" as loc
+rectangle "Location.Ref\n(directory, workspaceID?)" as loc
 
-package "Base" #E0F2F1 {
-  [Config] [AgentV2] [PluginV2] [Catalog]
-  [FileSystem] [Watcher] [Pty] [SkillV2]
-  [SystemContextBuiltIns] [Reference] [CommandV2]
+package "Base" as basePkg #E0F2F1 {
+  [Config] as cfg
+  [AgentV2] as agent
+  [PluginV2] as plugin
+  [Catalog] as catalog
+  [FileSystem] as fs
+  [Watcher] as watcher
+  [Pty] as pty
+  [SkillV2] as skill
+  [SystemContextBuiltIns] as sysctx
+  [Reference] as ref
+  [CommandV2] as cmd
 }
 
-package "Permission & Tools" #E8F5E9 {
-  [PermissionV2] [PermissionSaved]
-  [ToolRegistry] [ToolOutputStore]
+package "Permission and Tools" as permPkg #E8F5E9 {
+  [PermissionV2] as perm
+  [PermissionSaved] as permSaved
+  [ToolRegistry] as tools
+  [ToolOutputStore] as toolOut
 }
 
-package "Execution" #F3E5F5 {
-  [SessionRunnerModel]
-  [SessionRunner]
-  [BuiltInTools]
-  [SkillGuidance] [ReferenceGuidance]
+package "Execution" as execPkg #F3E5F5 {
+  [SessionRunnerModel] as model
+  [SessionRunner] as runner
+  [BuiltInTools] as builtins
+  [SkillGuidance] as skillGuide
+  [ReferenceGuidance] as refGuide
+  [Image] as image
+  [FileMutation] as mutation
 }
 
-package "Auxiliary" #FFF3E0 {
-  [SessionTodo] [QuestionV2]
-  [Image] [FileMutation]
+package "Auxiliary" as auxPkg #FFF3E0 {
+  [SessionTodo] as todo
+  [QuestionV2] as question
 }
 
-loc --> Base
-Base --> "Permission & Tools"
-"Permission & Tools" --> Execution
-Base --> Auxiliary
+loc --> basePkg
+basePkg --> permPkg
+permPkg --> execPkg
+basePkg --> auxPkg
 
-note bottom
+note bottom of execPkg
   **进程全局（不在 Location 内）**
-  SessionStore · SessionExecution · EventV2
+  SessionStore
+  SessionExecution
+  EventV2
   ApplicationTools 注册入口
 
-  Boot 副作用: ProjectCopy.refreshAfterBoot
+  **Idle TTL:** 60 分钟
+  **Boot:** ProjectCopy.refreshAfterBoot
 end note
 
 @enduml
 ```
+
+
 
 **SessionExecution 路由链（仅 sessionID）：**
 
@@ -654,39 +958,56 @@ SessionExecution.wake(sessionID)
 
 ### 13.2 V2 工具生命周期
 
-```mermaid
-flowchart TB
-  subgraph Register["注册阶段"]
-    BI["BuiltInTools.locationLayer"]
-    APP["ApplicationTools 进程全局"]
-    PLG["Plugin register"]
-    REG["ToolRegistry.register overlay"]
-  end
+<!-- kroki:14 ok -->
 
-  subgraph Turn["每 Provider Turn"]
-    MAT["materialize(permissions)"]
-    FIL["过滤 wholly-denied\n(visibility only)"]
-    DEF["definitions + settle hook → LLM"]
-  end
+**图 · 13.2 V2 工具生命周期**
 
-  subgraph Settle["Tool Call"]
-    CALL["llm stream tool-call"]
-    ST["settle(call)"]
-    PERM["PermissionV2.assert"]
-    EXEC["Tool.execute"]
-    OUT["ToolOutputStore.bound"]
-    EVT["Tool.Success / Failed"]
-  end
+Kroki SVG 链接（复制到浏览器打开）：
 
-  BI --> REG
-  PLG --> REG
-  APP --> MAT
-  REG --> MAT --> FIL --> DEF
-  DEF --> CALL --> ST --> PERM
-  PERM -->|allow| EXEC --> OUT --> EVT
-  PERM -->|deny| DENY["DeniedError"]
-  PERM -->|ask| ASK["permission.v2.asked → 用户"]
+```text
+https://kroki.thetamind.ai/plantuml/svg/eNpdUk9rE0EUv8-neN42SLfQY3Ow_qkgRAy29D7dfWkeeTuzzMymruTgJdViURAPgqdCxVyMiLQRBPtdxN3Eb-HMLq3Q4_7e7997O1vWSeOKjMFpzWtMA0zKhFHcckPMEHKWpIQjxwh7G1AtPlXTRf19Vh2d_Pnxpj7-vDo9EWLSIn8_XNTz84loPMXmvYLYPVK73tjGrBPpSKueLNF0xWafiwNSYPCArGuQu3nO1JIaCawuPy5nr6vprPr2ws8D-LShmzK-0oEeo2FZdkOJr2-hb_SYUo_vFkZNbogy6RUkmZ5jlKPJyFofZjvefHX5sv55BodDzVyupagIU4jGZGmfmFwZOCkOSFHoZ-E2WHThKEOtR_D76B30eo9DiRAI9yWzD2fOwAejzNrrJh6-uUhrE4WRzxA0gKh_XW1vI5bWonF3OuD_h4LI0_RhRwA0LjE-w6Rw2L0CnhQuL9yO0wbjfV2o9HoS7xRJgtbCOjyUxOgnyBZDnt-2bP0D-UGz-7Yx2rQUH2pHTeT_m8Xj0GyErf_yy3H1a7p8P6tfLZan89X8zCtVSgPhn4LOhdjyX_6NiX8zo_LK
 ```
+
+PlantUML 源码：
+
+```plantuml
+@startuml tool-lifecycle
+!theme plain
+title V2 工具注册与执行
+
+|注册阶段|
+start
+:BuiltInTools.locationLayer;
+:Plugin register;
+:ApplicationTools 进程全局;
+:ToolRegistry.register overlay;
+
+|每 Provider Turn|
+:ToolRegistry.materialize(permissions);
+:过滤 wholly-denied (visibility);
+:definitions + settle hook → LLM;
+
+|Tool Call|
+:llm stream tool-call;
+:ToolRegistry.settle(call);
+
+if (PermissionV2.assert?) then (allow)
+  :Tool.execute;
+  :ToolOutputStore.bound;
+  :Tool.Success / Failed;
+elseif (deny) then
+  :DeniedError;
+else (ask)
+  :permission.v2.asked;
+  :等待用户确认;
+endif
+
+stop
+
+@enduml
+```
+
+
 
 **权限规则合并：** Agent 默认 ruleset + Session `PermissionSaved` + Subagent 继承；**最后匹配的 wildcard 规则胜出**；默认 effect 为 `ask`。
 
@@ -695,6 +1016,18 @@ flowchart TB
 ## 14. 子 Agent（task 工具）
 
 Subagent **不是**独立 Runner 类型，而是 `parentID` 关联的普通 Session。
+
+<!-- kroki:15 ok -->
+
+**图 · 14. 子 Agent**
+
+Kroki SVG 链接（复制到浏览器打开）：
+
+```text
+https://kroki.thetamind.ai/plantuml/svg/eNptU0FrE0EYvc-v-OwpC43iNaA2TZZSTJOlm0oPhWU2O02G7s4uM7NCrkKlqJUgwYsgCAYKUhUKBq0g-FPESfwZzs5kY6Jelt2Z99733pvZLSExl3kSg8hD3CdMViUWJ-iGHJCEQBZjypCkMiagLkdQLxDwfQoFCNR0ok6nCGVagvZohvXehsdpgvkQfCIETdkRq4Q5jaNbWoo5G4AFeJhrlXVWV-t10zQ2gOJjfdvO5aRPheRDAzJL6yg_D1fGZmbMbvPO_OyTHdwYaCN_USzc42mSSXhw2-B8DyFrEqp3jZsaSG2u2sNxXCmLCuQwI5uQGeomhLh30udpzqJ7Dio4BdeYrEGfyHWac8SSNCKQ5EJCSJblI4RjCbOXH39eX6snbxBAqWS818p4N3ucYEmWGR1EYkF0QSJPyL8s9fZ8Pr4whxbQCNSHz-rLuNRChEVo6dimjQinD4m_cFWWRHhCzVvFsUaPU30kJjNUInKM81g6K9N9r7aop9IrjCx0CojvlQCes1aaZvDj8QtQ75_NzkZLBY2wx7Cov4inpx7utWzcP5VrCkulLoD2Bxrd8dx2o9N0A_fQc_d399x2t94KtuuN-zv7nYN2M_APtus7etX_36z5u6fq_OrXt7F69dpedBqtWVZfH80uJ6XzxdaKgI2hRs9nVxfqdAJiyPTvpC8d2AS28S391D8e-g2jkklX
+```
+
+PlantUML 源码：
 
 ```plantuml
 @startuml subagent-task
@@ -732,6 +1065,8 @@ end
 @enduml
 ```
 
+
+
 | subagent | mode | 能力概要 |
 |----------|------|---------|
 | `general` | subagent | 多步研究；deny todowrite |
@@ -747,38 +1082,59 @@ V2 Session 持久化 **模型可见的特权系统上下文**（与 user/assista
 
 **Context Sources：** 环境事实 · 主机日期 · `AGENTS.md` · Agent Skills 指引 · Location 注册源
 
-```mermaid
-flowchart TB
-  subgraph Sources["Context Sources"]
-    S1["Environment / Date"]
-    S2["AGENTS.md upward"]
-    S3["Skill Guidance"]
-    S4["Registry sources"]
-  end
+<!-- kroki:16 ok -->
 
-  subgraph Epoch["Context Epoch"]
-    B["Baseline 不可变快照"]
-    SN["Snapshot 结构化对比"]
-    U["Chronological Updates"]
-  end
+**图 · 15. Context Epoch**
 
-  Sources --> OBS["observe at safe boundary"]
-  OBS --> INIT["initialize epoch"]
-  INIT --> B
-  PROM["promote input"] --> REC["reconcile"]
-  REC -->|changed| UPD["ContextUpdated + advance snapshot"]
-  REC -->|unchanged| REQ["assemble LLM request"]
-  UPD --> U --> REQ
-  B --> REQ
+Kroki SVG 链接（复制到浏览器打开）：
 
-  subgraph Triggers["Epoch 替换"]
-    T1["Agent / Model switch"]
-    T2["Compaction ended"]
-    T3["Session Move → clear"]
-  end
-
-  Triggers --> REC
+```text
+https://kroki.thetamind.ai/plantuml/svg/eNqFUrlOAzEQ7f0VQ5cEIfqk4BJdUkV0NN7dya4lr23s2XB0UFCBIAghBJGQKAIdX4D4F6Td8BnYmwMhCsq53nvzZjYdcUtFLiHWivCI1tDoOGMrlGGOYCQXipEgibAza4Dd0ADT26dy9F6OXqvxE2M1CmvryKEdIgglSPAlJnACxwcIkS5Uwu1xhzExgMaiXF69TW9fN5rgSRU0qvu3JgNoz1HECUItqhOS29yhFAphFfqKG5dp6jCUDqFRXk_qOTzCuCChFVQPZ-XpeF8Zq3NDYFAlQqUBx5E2LIQDxtqhrMmzSJGKSAb9pvCwbYteYix85t8N7suLuz8bzC3bMwknTGr9PBlyFSO4pfjQl1mttNSpiL1rs3b3a62FVO4c5kFit9sDiwcFOtpX0Y8pxWKYqbCSFWlGnqLVmp2tevyoLp-_Xibl1ajV8oWtFBXBOvR0ghLcoSB_ffDHzg2PaxM9NSY-1UfnQtzT_sKf5zcQS-Q2KINAFZ7Ae8o2fcL_E_sG7xfewQ==
 ```
+
+PlantUML 源码：
+
+```plantuml
+@startuml context-epoch
+!theme plain
+title Context Epoch 生命周期
+
+start
+:observe initial context at safe boundary;
+
+if (context 可用?) then (是)
+  :initialize epoch;
+  :Baseline + Snapshot;
+else (否)
+  :execution 暂停\nprompt pending;
+  stop
+endif
+
+:promote eligible input;
+:reconcile at safe boundary;
+
+if (context 变化?) then (是)
+  :ContextUpdated;
+  :advance snapshot;
+  :Chronological Updates;
+else (否)
+endif
+
+:assemble LLM request\nbaseline + updates;
+
+note right
+  **Epoch 替换触发**
+  Agent / Model switch
+  Compaction ended
+  Session Move → clear
+end note
+
+stop
+
+@enduml
+```
+
+
 
 规格：`specs/v2/session.md` · `specs/v2/instructions.md`。
 
@@ -788,51 +1144,119 @@ flowchart TB
 
 V2 Runner **已实现**自动压缩（`SessionCompaction.compactIfNeeded`）。
 
-```mermaid
-flowchart TB
-  START["runTurnAttempt 开始前"] --> EST["估算 model-visible tokens"]
-  EST --> CHECK{"> contextWindow - reserve?"}
-  RES["reserve = max(outputAllowance, compaction.buffer)"]
-  CHECK -->|否| TURN["执行 provider turn"]
-  CHECK -->|是| COMP["Compaction hidden agent"]
-  COMP --> CS["compaction.started"]
-  CS --> CE["compaction.ended\nsummary + recent context"]
-  CE --> EPO["Context Epoch replacement"]
-  EPO --> RELOAD["reload history"] --> TURN
+<!-- kroki:17 ok -->
 
-  TURN --> OV{"Provider overflow?"}
-  OV -->|是| OFC["compactAfterOverflow"]
-  OFC -->|成功| RELOAD
-  OFC -->|第二次失败| FAIL["终端 Step.Failed"]
+**图 · 16. Compaction**
 
-  note1["完整 transcript 保持 durable\nactive representation 被 checkpoint 替换"]
+Kroki SVG 链接（复制到浏览器打开）：
+
+```text
+https://kroki.thetamind.ai/plantuml/svg/eNptks9u00AQxu_7FMMtkUgOHBMBjSq4ggSC89Y7rle1d816nJYbnPqHROqlAglVqBXQqo0akHqCSn2Z2DFvwaxjKEq5rWZnvvl9M7OSkXSUJzEENkllQNqaThjbTXGHIkwQ0lhqI0hTjPDiHlTbZ8XeKaz-TRaiVhA9l5vnuTMDIkxSguLqTXHyrtgd90VvdvVtfvEeEqsw7gx1ptdYjOwGmqwvhA6h5fBVjhnBA8YwhFv0UhtlN6EDDjN0Q3zYBuYx0Co_TNsCoHdDAJFWir_kOhrq-78bK90aDtVyGI1qgquLfvAotUHE3dhvwL4bJYexlYo7ZGTd677AOENoFftf24IldChEr9w9qY5GkDo71AodEA-hcfX0T6wxBXaIzg_3lpsGbRASuidNkgfwKuXOfrH3abnkP3B18Nf2uJoeLOMALMjnk8nsx6icHBWfv1eXXxqh-c-d-fkUnhGm3cdSx4vRALBu6ktrp7et19_CWEJwej0iTm22BfchkVstm1Oa0yBmM9IEePefG-uu5WGIzgMUF6Py4BLISZMFTvPtzK4Py9FbULmTfCmc4mtYlbfjGxiS9d6r43MIIgw2UqsNQfnxuhwfezjwTEKs8JMvW_wGW6MbZA==
 ```
+
+PlantUML 源码：
+
+```plantuml
+@startuml compaction-flow
+!theme plain
+title V2 自动 Compaction
+
+start
+:runTurnAttempt 开始前;
+:估算 model-visible tokens;
+
+if (request > contextWindow - reserve?) then (是)
+  :Compaction hidden agent;
+  :compaction.started;
+  :compaction.ended;
+  :Context Epoch replacement;
+  :reload history;
+else (否)
+endif
+
+:执行 provider turn;
+
+if (Provider context overflow?) then (是)
+  :compactAfterOverflow;
+  if (成功?) then (是)
+    :reload history;
+    :重试 provider turn;
+  else (第二次失败)
+    :终端 Step.Failed;
+    stop
+  endif
+else (否)
+endif
+
+stop
+
+note right
+  reserve = max(outputAllowance, compaction.buffer)
+  完整 transcript 保持 durable
+  active representation 被 checkpoint 替换
+end note
+
+@enduml
+```
+
+
 
 ---
 
 ## 17. Agent 模型
 
-```mermaid
-flowchart LR
-  subgraph Primary["primary · UI 可选"]
-    build["build 默认"]
-    plan["plan 受限 edit"]
-  end
+<!-- kroki:18 ok -->
 
-  subgraph Sub["subagent · 仅 task"]
-    general["general"]
-    explore["explore"]
-  end
+**图 · 17. Agent 模型**
 
-  subgraph Hidden["primary + hidden · 内部"]
-    compact["compaction"]
-    title["title"]
-    summary["summary"]
-  end
+Kroki SVG 链接（复制到浏览器打开）：
 
-  Primary --> Sel["AgentV2.select()\nmode≠subagent ∧ !hidden"]
-  Sub --> Task["task 工具"]
+```text
+https://kroki.thetamind.ai/plantuml/svg/eNpVUk1rFEEQvfevqMSLIushIUclAbPgLSjmssmhd6ez22xP9zDdgwYJCGEDGjQ5CH6BkCWBVTHxENjAkBzyW3b241_YVT2jK3PpfvWm36tXtWodT10WK-BtoV0tNpFQbMF1RCwgUVxqZrtSJzzlMbRMnBjtac_crhKQipbjuq3EHMV2eGReSN2GHa6sYE46zywOepPrc1hDCRgPTopvh4wlvNX1orCYpDLm6S7cDuH5EyiOLmav3ywCt1AWNrptuLO-XF-qP4ZXDKDRzKSKkD7LP03PT7eRSxgWvWmNteLo4-zzMYhIOiIgzvbmZG3WpJ6RPMp74LjtQjE8K3pDUvd1Uq4vr6_UV4Ky54uUK3r_9Mv419koz4u3JyRQ1pAmXibKpCLY-DG9yMfv-5PLPtHK2n9WqgTuQ0dGkQj-D3qz_QE5CWAws4ZfMIPj4C0njaaHyytWKHUC6YSQzWKU2A6d0RktNGgmm0sPrFB-nHfvbWlcAVh4CFU-W5rrCLRxpY_wBNFZYy60oOfvjIUB1WqPKh4NZe5e5YgQ_VIl9hdgXlBA0zhnYjA7_zLwzZQhhemNrt75lZn2f-Ly-M0ZH373FD_Q0c1XeJppL1RmOf29P_kwYCJ0Ixhb9Ue_-uwPgWsubg==
 ```
+
+PlantUML 源码：
+
+```plantuml
+@startuml agent-model
+!theme plain
+skinparam componentStyle rectangle
+skinparam shadowing false
+title 内置 Agent 模型
+
+package "primary · UI 可选" as primaryPkg #E3F2FD {
+  [build · 默认] as build
+  [plan · 受限 edit] as plan
+}
+
+package "subagent · 仅 task 工具" as subPkg #F3E5F5 {
+  [general · 多步任务] as general
+  [explore · 只读探索] as explore
+}
+
+package "primary + hidden · 内部" as hiddenPkg #FAFAFA {
+  [compaction] as compact
+  [title] as title
+  [summary] as summary
+}
+
+[AgentV2.select()\nmode != subagent\nand not hidden] as select
+[task 工具] as task
+
+build --> select
+plan --> select
+general --> task
+explore --> task
+
+note bottom of hiddenPkg
+  hidden agent 不可被 UI 选择
+  仅供 Runner 内部调用
+end note
+
+@enduml
+```
+
+
 
 `AgentV2.select(id?)`：`packages/core/src/agent.ts` · 内置定义 `packages/core/src/plugin/agent.ts`。
 

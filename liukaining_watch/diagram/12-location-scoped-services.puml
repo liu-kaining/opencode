@@ -1,64 +1,66 @@
 @startuml opencode-location-services
 !theme plain
+skinparam componentStyle rectangle
+skinparam shadowing false
 title LocationServiceMap 服务清单\n(packages/core/src/location-layer.ts)
 
-rectangle "Location Ref\n{ directory, workspaceID? }" as loc
+rectangle "Location.Ref\n(directory, workspaceID?)" as loc
 
-package "Base Layer" {
-  [Location]
-  [Policy]
-  [Config]
-  [Reference]
-  [PluginV2]
-  [Catalog]
-  [Integration]
-  [CommandV2]
-  [AgentV2]
-  [PluginBoot]
-  [ProjectCopy]
-  [FileSystem]
-  [Watcher]
-  [Pty]
-  [SkillV2]
-  [SystemContextBuiltIns]
+package "Base Layer" as basePkg {
+  [Location] as location
+  [Policy] as policy
+  [Config] as config
+  [Reference] as reference
+  [PluginV2] as plugin
+  [Catalog] as catalog
+  [Integration] as integration
+  [CommandV2] as command
+  [AgentV2] as agent
+  [PluginBoot] as pluginBoot
+  [ProjectCopy] as projectCopy
+  [FileSystem] as fs
+  [Watcher] as watcher
+  [Pty] as pty
+  [SkillV2] as skill
+  [SystemContextBuiltIns] as sysctx
 }
 
-package "Permissions & Tools" {
-  [PermissionV2]
-  [PermissionSaved]
-  [ToolRegistry]
-  [ToolOutputStore]
-  [ApplicationTools GLOBAL]
+package "Permissions and Tools" as permPkg {
+  [PermissionV2] as perm
+  [PermissionSaved] as permSaved
+  [ToolRegistry] as tools
+  [ToolOutputStore] as toolOut
 }
 
-package "Execution" {
-  [SessionRunnerModel]
-  [SessionRunner LLM]
-  [BuiltInTools]
-  [Image]
-  [FileMutation]
-  [SkillGuidance]
-  [ReferenceGuidance]
+package "Execution" as execPkg {
+  [SessionRunnerModel] as model
+  [SessionRunner LLM] as runner
+  [BuiltInTools] as builtins
+  [Image] as image
+  [FileMutation] as mutation
+  [SkillGuidance] as skillGuide
+  [ReferenceGuidance] as refGuide
 }
 
-package "Session Aux" {
-  [SessionTodo]
-  [QuestionV2]
+package "Session Aux" as auxPkg {
+  [SessionTodo] as todo
+  [QuestionV2] as question
 }
 
-loc --> "Base Layer"
-"Base Layer" --> "Permissions & Tools"
-"Permissions & Tools" --> "Execution"
-"Base Layer" --> "Session Aux"
+loc --> basePkg
+basePkg --> permPkg
+permPkg --> execPkg
+basePkg --> auxPkg
 
-note bottom
-  **进程全局 (不在 Location 内):**
-  SessionStore, SessionExecution, EventV2,
+note bottom of execPkg
+  **进程全局（不在 Location 内）**
+  SessionStore
+  SessionExecution
+  EventV2
   ApplicationTools 注册入口
 
-  **Idle TTL:** 60 分钟无活动后释放 Location layer
-
-  **Boot 副作用:** ProjectCopy.refreshAfterBoot
+  **Idle TTL:** 60 分钟
+  **Boot:** ProjectCopy.refreshAfterBoot
 end note
 
 @enduml

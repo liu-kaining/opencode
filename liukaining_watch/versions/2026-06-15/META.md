@@ -50,6 +50,12 @@
 - `specs/v2/session.md` 中 V1 Runtime Context Parity 表仍有多项 `partial` / `missing`
 - SDK 中 `Session2`（Instance）与 `Session3` / `client.v2.session`（V2 HttpApi）并存
 
+## v2026.06.15 第四次修订
+
+- 主文档图表 **全部统一为 PlantUML**（移除 Mermaid）
+- 修复 §5 / §12 PlantUML 语法（alias、note 锚点、避免 `*/` 和 `{}`）
+- §1 心智模型改为 PlantUML 组件图
+
 ## v2026.06.15 第三次修订
 
 - 移除文档中「分享」相关章节与措辞

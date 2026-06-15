@@ -4,47 +4,51 @@ skinparam componentStyle rectangle
 skinparam shadowing false
 title HTTP Server 路由树 (packages/opencode/.../httpapi/server.ts)
 
-package "opencode 进程 · 默认 :4096" {
+package "opencode 进程 · 默认 :4096" as proc {
+
   [HttpApiApp] as app
 
-  package "RootHttpApi" {
-    [globalHandlers]
-    [controlPlaneHandlers]
-    [GET /doc OpenAPI]
+  package "RootHttpApi" as rootPkg {
+    [globalHandlers] as globalH
+    [controlPlaneHandlers] as controlH
+    [GET /doc OpenAPI] as openApi
   }
 
-  package "InstanceHttpApi\nx-opencode-directory / ?directory=" {
-    [sessionHandlers\n/session/* → SessionPrompt V1]
-    [config / mcp / pty / file ...]
-    [eventHandlers SSE]
+  package "InstanceHttpApi" as instPkg {
+    [sessionHandlers] as sessionH
+    [config / mcp / pty / file] as instMisc
+    [eventHandlers SSE] as eventH
   }
 
-  package "Api @opencode-ai/server\n/api/*" {
-    [SessionHandler\n/api/session/* → SessionV2]
-    [Message / Agent / Provider / FS ...]
+  package "Api @opencode-ai/server" as apiPkg {
+    [SessionHandler] as sessionV2H
+    [Message / Agent / Provider / FS] as apiMisc
   }
 
-  package "Raw Router" {
-    [uiRoute /* 静态 Web UI]
-    [PtyConnectApi WebSocket]
+  package "Raw Router" as rawPkg {
+    [uiRoute 静态 Web UI] as uiRoute
+    [PtyConnectApi WebSocket] as ptyWs
   }
 }
 
-[SDK / TUI / Web] --> app
-app --> RootHttpApi
-app --> InstanceHttpApi
-app --> Api
-app --> Raw Router
+actor "SDK / TUI / Web" as clients
 
-note bottom of InstanceHttpApi
-  TUI 日常聊天:
-  POST /session/{id}/message
+clients --> app
+app --> rootPkg
+app --> instPkg
+app --> apiPkg
+app --> rawPkg
+
+note bottom of instPkg
+  **Instance API · V1**
+  POST /session/(sessionID)/message
   → SessionPrompt.prompt()
+  header: x-opencode-directory
 end note
 
-note bottom of Api
-  V2 Durable:
-  POST /api/session/{id}/prompt
+note bottom of apiPkg
+  **V2 HttpApi · Durable**
+  POST /api/session/(sessionID)/prompt
   → SessionV2.prompt()
 end note
 
