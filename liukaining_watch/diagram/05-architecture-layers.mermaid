@@ -1,0 +1,91 @@
+%% OpenCode 架构分层详解
+
+flowchart TB
+  subgraph L0["Layer 0 — 客户端层"]
+    direction LR
+    L0A["CLI / TUI"]
+    L0B["Web / Desktop"]
+    L0C["SDK / VSCode / Slack"]
+  end
+
+  subgraph L1["Layer 1 — 传输 & 实例层 (packages/opencode)"]
+    direction TB
+    L1A["HTTP Server + HttpApi<br/>x-opencode-directory header"]
+    L1B["InstanceContext<br/>directory / worktree / project"]
+    L1C["Instance Bootstrap<br/>Config · Plugins · LSP · VCS · Snapshot"]
+    L1D["InstanceState / InstanceStore<br/>按目录缓存"]
+  end
+
+  subgraph L2["Layer 2 — Location 作用域层 (@opencode-ai/core)"]
+    direction TB
+    L2A["Location { directory, workspaceID? }"]
+    L2B["LocationServiceMap<br/>60min idle TTL"]
+    L2C["Config · Agent · Catalog · Plugin"]
+    L2D["ToolRegistry · PermissionV2 · BuiltInTools"]
+    L2E["SessionRunner · SessionRunnerModel"]
+    L2F["FileSystem · Watcher · Pty · Skill"]
+    L2G["SystemContext Registry"]
+  end
+
+  subgraph L3["Layer 3 — Session 编排层 (进程全局 + Location)"]
+    direction TB
+    L3A["SessionStore — 进程全局 lookup"]
+    L3B["SessionV2 — create / prompt / interrupt"]
+    L3C["SessionInput — durable inbox (steer | queue)"]
+    L3D["SessionExecution — 仅按 sessionID 路由"]
+    L3E["SessionRunCoordinator — 每 Session 一条 drain"]
+    L3F["SessionRunner — provider turn 编排"]
+  end
+
+  subgraph L4["Layer 4 — 事件 & 持久化层"]
+    direction TB
+    L4A["EventV2 — 同步/实时事件"]
+    L4B["SessionProjector — 投影读模型"]
+    L4C["Context Epoch — 特权系统上下文"]
+    L4D[("SQLite + Drizzle<br/>session · session_input · session_message · event")]
+    L4E["SyncEvent — 单写者回放 (opencode/sync)"]
+  end
+
+  subgraph L5["Layer 5 — LLM & Provider 层"]
+    direction TB
+    L5A["@opencode-ai/llm — Effect Schema 核心"]
+    L5B["Protocols: OpenAI / Anthropic / Gemini / Bedrock"]
+    L5C["V1: AI SDK 兼容 (opencode/session/llm.ts)"]
+    L5D["V2: native route runtime (runner/llm.ts)"]
+  end
+
+  subgraph L6["Layer 6 — 工具 & 权限层"]
+    direction TB
+    L6A["Built-in: read · edit · bash · grep · ..."]
+    L6B["MCP Tools (opencode/mcp)"]
+    L6C["Plugin Tools"]
+    L6D["ApplicationTools — 进程全局注册"]
+    L6E["Permission: evaluate → ask | deny | allow"]
+  end
+
+  subgraph L7["Layer 7 — 控制面 & 云端"]
+    direction TB
+    L7A["Control Plane — workspace 路由"]
+    L7B["Console — 认证/计费"]
+    L7C["Enterprise / Stats"]
+  end
+
+  L0 --> L1
+  L1 --> L2
+  L1 --> L3
+  L2 --> L3
+  L3 --> L4
+  L3 --> L5
+  L2 --> L6
+  L3 --> L6
+  L4 --> L5
+  L1 --> L7
+
+  style L0 fill:#e8eaf6
+  style L1 fill:#e3f2fd
+  style L2 fill:#e0f2f1
+  style L3 fill:#f3e5f5
+  style L4 fill:#fce4ec
+  style L5 fill:#fff3e0
+  style L6 fill:#e8f5e9
+  style L7 fill:#fafafa

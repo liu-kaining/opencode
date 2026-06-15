@@ -1,0 +1,64 @@
+@startuml opencode-location-services
+!theme plain
+title LocationServiceMap 服务清单\n(packages/core/src/location-layer.ts)
+
+rectangle "Location Ref\n{ directory, workspaceID? }" as loc
+
+package "Base Layer" {
+  [Location]
+  [Policy]
+  [Config]
+  [Reference]
+  [PluginV2]
+  [Catalog]
+  [Integration]
+  [CommandV2]
+  [AgentV2]
+  [PluginBoot]
+  [ProjectCopy]
+  [FileSystem]
+  [Watcher]
+  [Pty]
+  [SkillV2]
+  [SystemContextBuiltIns]
+}
+
+package "Permissions & Tools" {
+  [PermissionV2]
+  [PermissionSaved]
+  [ToolRegistry]
+  [ToolOutputStore]
+  [ApplicationTools GLOBAL]
+}
+
+package "Execution" {
+  [SessionRunnerModel]
+  [SessionRunner LLM]
+  [BuiltInTools]
+  [Image]
+  [FileMutation]
+  [SkillGuidance]
+  [ReferenceGuidance]
+}
+
+package "Session Aux" {
+  [SessionTodo]
+  [QuestionV2]
+}
+
+loc --> "Base Layer"
+"Base Layer" --> "Permissions & Tools"
+"Permissions & Tools" --> "Execution"
+"Base Layer" --> "Session Aux"
+
+note bottom
+  **进程全局 (不在 Location 内):**
+  SessionStore, SessionExecution, EventV2,
+  ApplicationTools 注册入口
+
+  **Idle TTL:** 60 分钟无活动后释放 Location layer
+
+  **Boot 副作用:** ProjectCopy.refreshAfterBoot
+end note
+
+@enduml

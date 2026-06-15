@@ -1,0 +1,75 @@
+%% V2 主链路流程 — Prompt 到响应 (时序图)
+
+sequenceDiagram
+  autonumber
+  participant Client as Client<br/>(SDK/TUI/HTTP)
+  participant HTTP as HTTP Handler<br/>packages/server
+  participant SV2 as SessionV2<br/>core/session.ts
+  participant SI as SessionInput<br/>core/session/input.ts
+  participant EV as EventV2<br/>core/event.ts
+  participant SE as SessionExecution<br/>execution/local.ts
+  participant SC as SessionRunCoordinator<br/>run-coordinator.ts
+  participant SR as SessionRunner<br/>runner/llm.ts
+  participant CE as Context Epoch<br/>context-epoch.ts
+  participant TR as ToolRegistry<br/>tool/registry.ts
+  participant LLM as LLM<br/>@opencode-ai/llm
+  participant PJ as SessionProjector<br/>session/projector.ts
+  participant DB as SQLite
+
+  Client->>HTTP: POST /session/{id}/prompt
+  HTTP->>SV2: prompt({ sessionID, prompt, delivery })
+
+  Note over SV2,SI: ① Durable Admission
+  SV2->>SI: admit(db, events, input)
+  SI->>EV: PromptLifecycle.Admitted
+  EV->>PJ: project → session_input row
+  EV->>DB: 事务提交
+  SV2-->>HTTP: Admitted receipt
+  HTTP-->>Client: 202 / admitted
+
+  Note over SV2,SC: ② Advisory Wake (async)
+  SV2->>SE: wake(sessionID, admittedSeq)
+  SE->>SC: wake(key, seq)
+  SC->>SR: run({ sessionID })
+
+  Note over SR,CE: ③ Safe Boundary Promotion
+  SR->>SI: hasPending(steer|queue)
+  SR->>SI: promoteSteers / promoteNextQueued
+  SI->>EV: PromptLifecycle.Promoted
+  EV->>PJ: → visible user message
+  EV->>DB: 标记 inbox promoted
+
+  Note over SR,CE: ④ Context & History
+  SR->>CE: initialize / reconcile at safe boundary
+  SR->>DB: SessionHistory.entriesForRunner()
+
+  Note over SR,LLM: ⑤ One Provider Turn
+  SR->>TR: materialize(agent.permissions)
+  TR-->>SR: definitions + settle hook
+  SR->>LLM: stream(request)
+
+  loop Stream Events
+    alt Text/Reasoning Delta
+      LLM-->>SR: delta event
+      SR->>EV: live-only publish
+    else Tool Call
+      LLM-->>SR: tool-call
+      SR->>EV: Tool.Input / Tool.Called (durable)
+      SR->>TR: settle(call) [fiber]
+      TR->>EV: Tool.Success / Tool.Failed
+      SR->>LLM: tool-result
+    end
+  end
+
+  SR->>SR: await tool fibers
+  SR->>DB: reload history
+
+  alt 需要继续 (≤25 steps)
+    SR->>SR: runTurnAttempt again
+  else drain 完成
+    SC->>SC: idle
+  end
+
+  Client->>SV2: events({ after: cursor })
+  SV2->>EV: aggregateEvents(sessionID)
+  EV-->>Client: SSE durable events

@@ -1,0 +1,57 @@
+@startuml opencode-main-prompt-flow
+!theme plain
+title V2 主链路 Prompt 流程
+
+actor Client
+participant "HTTP Handler" as HTTP
+participant "SessionV2" as SV2
+participant "SessionInput" as SI
+participant "EventV2" as EV
+participant "SessionExecution" as SE
+participant "RunCoordinator" as SC
+participant "SessionRunner" as SR
+participant "ToolRegistry" as TR
+participant "LLM" as LLM
+database "SQLite" as DB
+
+== Durable Admission ==
+Client -> HTTP: prompt request
+HTTP -> SV2: prompt()
+SV2 -> SI: admit()
+SI -> EV: Admitted event
+EV -> DB: session_input + seq
+SV2 -> SE: wake(sessionID)
+note right of SI: resume:false 则仅准入
+
+== Advisory Execution ==
+SE -> SC: wake()
+SC -> SR: run()
+
+== Safe Boundary ==
+SR -> SI: promote steers/queue
+SI -> EV: Promoted event
+EV -> DB: user message visible
+
+== Provider Turn ==
+SR -> TR: materialize(permissions)
+SR -> LLM: stream(request)
+
+loop each stream event
+  alt tool-call
+    SR -> TR: settle()
+    TR -> EV: Tool.Success/Failed
+    SR -> LLM: tool-result
+  else text delta
+    SR -> EV: live-only
+  end
+end
+
+SR -> SR: await fibers, reload history
+SR --> SC: drain complete
+
+== Client Read ==
+Client -> SV2: events(after)
+SV2 -> EV: replay
+EV --> Client: SSE stream
+
+@enduml

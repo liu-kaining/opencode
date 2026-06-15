@@ -1,0 +1,67 @@
+%% 工具注册 & 权限流程 (V2)
+
+flowchart TB
+  subgraph Registration["工具注册"]
+    R1["BuiltInTools.locationLayer<br/>read · edit · bash · grep · ..."]
+    R2["ApplicationTools — 进程全局<br/>OpenCode.tools.register"]
+    R3["Plugin 注册工具"]
+    R4["ToolRegistry.register()<br/>Location overlay, 后者覆盖"]
+  end
+
+  subgraph Materialize["物化 (Runner 每 turn)"]
+    M1["ToolRegistry.materialize(permissions)"]
+    M2["合并 ApplicationTools + local"]
+    M3["过滤 wholly-denied 工具<br/>(visibility only)"]
+    M4["返回 definitions + settle hook"]
+  end
+
+  subgraph Execute["执行 settle"]
+    E1["LLM 返回 tool-call"]
+    E2["ToolRegistry.settle(call)"]
+    E3["查找 registration"]
+    E4["Tool.execute() — Effect"]
+    E5["permission.assert() 运行时授权"]
+    E6["ToolOutputStore.bound() 资源限制"]
+    E7["发布 Tool.Success / Tool.Failed"]
+  end
+
+  subgraph Permission["PermissionV2 判定"]
+    P1["evaluate(action, resource, ...rulesets)"]
+    P2["规则来源: Agent config + PermissionSaved"]
+    P3{"effect?"}
+    P4["allow — 直接执行"]
+    P5["deny — DeniedError"]
+    P6["ask — 发布 permission.v2.asked<br/>等待用户回复"]
+  end
+
+  subgraph Rulesets["规则合并顺序"]
+    RS1["Agent 默认 permissions"]
+    RS2["Session 级 saved allowances"]
+    RS3["Subagent: deriveSubagentSessionPermission"]
+    RS4["最后匹配 wildcard 规则胜出"]
+  end
+
+  R1 --> R4
+  R2 --> M1
+  R3 --> R4
+  R4 --> M1
+  M1 --> M2 --> M3 --> M4
+
+  M4 --> E1 --> E2 --> E3 --> E4
+  E4 --> E5
+  E5 --> P1
+  P1 --> P3
+  P3 -->|allow| P4 --> E6 --> E7
+  P3 -->|deny| P5
+  P3 -->|ask| P6 --> E4
+
+  RS1 --> P1
+  RS2 --> P1
+  RS3 --> P1
+  RS4 -.-> P1
+
+  style Registration fill:#e8f5e9
+  style Permission fill:#fff3e0
+  style Execute fill:#e3f2fd
+
+  note["V1 路径使用 packages/opencode 独立 ToolRegistry<br/>包装为 AI SDK tool() 对象"]

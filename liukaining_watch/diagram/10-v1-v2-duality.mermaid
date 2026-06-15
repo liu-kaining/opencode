@@ -1,0 +1,54 @@
+%% V1 / V2 双栈并存 — 当前迁移状态
+
+flowchart TB
+  subgraph Clients["所有客户端"]
+    C1["TUI / CLI (bun dev)"]
+    C2["packages/server HTTP"]
+    C3["Public OpenCode API<br/>core/public/opencode.ts"]
+  end
+
+  subgraph V1Stack["V1 栈 (packages/opencode) — 交互式运行时"]
+    V1A["SessionPrompt.loop / runLoop<br/>session/prompt.ts"]
+    V1B["SessionProcessor.process<br/>session/processor.ts"]
+    V1C["LLM.stream (AI SDK)<br/>session/llm.ts"]
+    V1D["opencode ToolRegistry<br/>AI SDK tool() 适配"]
+    V1E["TaskTool → 子 Session V1"]
+    V1F["EventV2Bridge<br/>OPENCODE_EXPERIMENTAL_EVENT_SYSTEM"]
+  end
+
+  subgraph V2Stack["V2 栈 (@opencode-ai/core) —  durable 方向"]
+    V2A["SessionV2.prompt"]
+    V2B["SessionInput.admit"]
+    V2C["SessionExecution → SessionRunner"]
+    V2D["llm.stream (native route)"]
+    V2E["core ToolRegistry"]
+    V2F["EventV2 原生事件"]
+  end
+
+  subgraph Shared["共享层"]
+    S1["EventV2 + SessionProjector"]
+    S2["SQLite 数据库"]
+    S3["Agent 定义 (V1/V2 各有一份 registry)"]
+  end
+
+  C1 --> V1A
+  C2 --> V2A
+  C3 --> V2A
+
+  V1A --> V1B --> V1C --> V1D
+  V1A --> V1E
+  V1B --> V1F
+
+  V2A --> V2B --> V2C --> V2D --> V2E
+
+  V1F --> S1
+  V2F --> S1
+  S1 --> S2
+
+  style V1Stack fill:#fff3e0,stroke:#ef6c00
+  style V2Stack fill:#e8f5e9,stroke:#2e7d32
+  style Shared fill:#e3f2fd
+
+  MIG["迁移目标 (AGENTS.md / specs/v2/session.md)\nV2 Runner 完全替代 V1 SessionPrompt.loop\n保留 admission/execution 分离、一次 llm.stream/turn"]
+
+  V2Stack -.-> MIG

@@ -1,0 +1,71 @@
+%% EventV2 事件溯源架构
+
+flowchart TB
+  subgraph Define["事件定义"]
+    ED["EventV2.define({ type, sync, schema })"]
+    Sync["同步事件 sync aggregate<br/>→ 持久化 + 投影 + 可回放"]
+    Live["实时事件 live-only<br/>→ pub/sub only (Text.Delta)"]
+  end
+
+  subgraph Publish["发布管道 commitSyncEvent"]
+    P1["beforeCommit guards<br/>例: SessionInput.guardReservedID"]
+    P2["Projectors 在 DB 事务内运行"]
+    P3["插入 event 表 + bump sequence"]
+    P4["通知 aggregate subscribers"]
+  end
+
+  subgraph SessionEvents["Session 事件词汇 (session/event.ts)"]
+    E1["PromptLifecycle.Admitted"]
+    E2["PromptLifecycle.Promoted"]
+    E3["Step.Started / Ended / Failed"]
+    E4["Text.Started / Ended (+ Delta live)"]
+    E5["Tool.Input / Called / Success / Failed"]
+    E6["Reasoning.*"]
+    E7["AgentSwitched / ModelSwitched / Moved"]
+    E8["InterruptRequested"]
+    E9["ContextUpdated / Compaction.*"]
+  end
+
+  subgraph Projectors["SessionProjector 投影"]
+    PJ1["Admitted → session_input row"]
+    PJ2["Promoted → session_message (user)"]
+    PJ3["Step/Text/Tool → SessionMessageUpdater"]
+    PJ4["Session CRUD from V1 events"]
+  end
+
+  subgraph Storage["存储"]
+    DB1[("event 表")]
+    DB2[("event_sequence 表")]
+    DB3[("session_message 读模型")]
+    DB4[("session_input inbox")]
+  end
+
+  subgraph ReadPaths["读路径"]
+    R1["SessionV2.events({ after }) — SSE 回放"]
+    R2["SessionHistory.load — Runner 用"]
+    R3["SyncEvent — 多设备单写者回放<br/>opencode/src/sync"]
+  end
+
+  ED --> Sync
+  ED --> Live
+
+  Sync --> P1 --> P2 --> P3 --> P4
+  P2 --> Projectors
+
+  E1 --> PJ1 --> DB4
+  E2 --> PJ2 --> DB3
+  E3 --> PJ3
+  E4 --> PJ3
+  E5 --> PJ3
+  PJ3 --> DB3
+
+  P3 --> DB1
+  P3 --> DB2
+
+  DB1 --> R1
+  DB3 --> R2
+  P4 --> R3
+
+  style Define fill:#e8eaf6
+  style Publish fill:#fff3e0
+  style SessionEvents fill:#f3e5f5

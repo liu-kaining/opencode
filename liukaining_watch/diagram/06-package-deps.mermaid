@@ -1,0 +1,65 @@
+%% Monorepo 包依赖关系
+
+flowchart TB
+  subgraph Clients
+    TUI["@opencode-ai/tui"]
+    APP["@opencode-ai/app"]
+    DESK["@opencode-ai/desktop"]
+    VSC["vscode extension"]
+    SLACK["@opencode-ai/slack"]
+  end
+
+  SDK["@opencode-ai/sdk<br/>packages/sdk/js"]
+
+  subgraph Runtime
+    OC["opencode<br/>packages/opencode"]
+    SRV["@opencode-ai/server<br/>packages/server"]
+    CORE["@opencode-ai/core<br/>packages/core"]
+    LLM["@opencode-ai/llm<br/>packages/llm"]
+  end
+
+  subgraph UI
+    UI["@opencode-ai/ui"]
+  end
+
+  subgraph Infra
+    EDS["effect-drizzle-sqlite"]
+    ESN["effect-sqlite-node"]
+    HREC["http-recorder"]
+    PLUGIN["@opencode-ai/plugin"]
+  end
+
+  subgraph Cloud
+    CON_APP["console/app"]
+    CON_CORE["console/core"]
+    ENT["enterprise"]
+    WEB["web (docs)"]
+  end
+
+  TUI --> SDK
+  APP --> SDK
+  APP --> UI
+  DESK --> APP
+  DESK --> OC
+  VSC --> SDK
+  SLACK --> SDK
+
+  SDK --> OC
+  OC --> SRV
+  OC --> CORE
+  OC --> LLM
+  OC --> PLUGIN
+  OC --> TUI
+
+  SRV --> CORE
+  CORE --> LLM
+  CORE --> EDS
+  CORE --> ESN
+  LLM --> HREC
+
+  CON_APP --> CON_CORE
+  ENT --> SDK
+
+  style CORE fill:#f3e5f5,stroke:#7b1fa2
+  style OC fill:#e3f2fd,stroke:#1565c0
+  style SDK fill:#e8f5e9,stroke:#2e7d32

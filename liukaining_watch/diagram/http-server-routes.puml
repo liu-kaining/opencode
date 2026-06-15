@@ -1,0 +1,51 @@
+@startuml opencode-http-server-routes
+!theme plain
+skinparam componentStyle rectangle
+skinparam shadowing false
+title HTTP Server 路由树 (packages/opencode/.../httpapi/server.ts)
+
+package "opencode 进程 · 默认 :4096" {
+  [HttpApiApp] as app
+
+  package "RootHttpApi" {
+    [globalHandlers]
+    [controlPlaneHandlers]
+    [GET /doc OpenAPI]
+  }
+
+  package "InstanceHttpApi\nx-opencode-directory / ?directory=" {
+    [sessionHandlers\n/session/* → SessionPrompt V1]
+    [config / mcp / pty / file ...]
+    [eventHandlers SSE]
+  }
+
+  package "Api @opencode-ai/server\n/api/*" {
+    [SessionHandler\n/api/session/* → SessionV2]
+    [Message / Agent / Provider / FS ...]
+  }
+
+  package "Raw Router" {
+    [uiRoute /* 静态 Web UI]
+    [PtyConnectApi WebSocket]
+  }
+}
+
+[SDK / TUI / Web] --> app
+app --> RootHttpApi
+app --> InstanceHttpApi
+app --> Api
+app --> Raw Router
+
+note bottom of InstanceHttpApi
+  TUI 日常聊天:
+  POST /session/{id}/message
+  → SessionPrompt.prompt()
+end note
+
+note bottom of Api
+  V2 Durable:
+  POST /api/session/{id}/prompt
+  → SessionV2.prompt()
+end note
+
+@enduml

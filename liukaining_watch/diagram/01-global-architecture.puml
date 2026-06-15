@@ -1,0 +1,80 @@
+@startuml opencode-global-architecture
+!theme plain
+skinparam componentStyle rectangle
+skinparam shadowing false
+title OpenCode 全局架构 (PlantUML)
+
+package "Clients" {
+  [CLI / TUI] as cli
+  [Web App] as web
+  [Desktop Electron] as desktop
+  [VS Code Extension] as vscode
+  [External SDK Users] as ext
+}
+
+package "packages/opencode" as opencode {
+  [yargs CLI] as yargs
+  [HTTP Server :4096] as http
+  [HttpApi Routes] as routes
+  [Instance Bootstrap] as bootstrap
+  [V1 SessionPrompt] as v1prompt
+  [V1 ToolRegistry] as v1tools
+  [EventV2Bridge] as bridge
+  [MCP / LSP] as integrations
+}
+
+package "@opencode-ai/core" as core {
+  [SessionV2] as sessionv2
+  [SessionInput] as input
+  [SessionExecution] as exec
+  [SessionRunCoordinator] as coord
+  [SessionRunner] as runner
+  [EventV2 + Projector] as events
+  [LocationServiceMap] as location
+  [ToolRegistry + PermissionV2] as tools
+  database "SQLite" as db
+}
+
+package "@opencode-ai/llm" as llm {
+  [LLM Core] as llmcore
+  [Provider Protocols] as providers
+}
+
+package "Cloud (SST)" as cloud {
+  [Console] as console
+  [Enterprise] as enterprise
+  [Stats] as stats
+}
+
+cli --> yargs
+web --> http : SDK
+desktop --> http : SDK
+vscode --> http : SDK
+ext --> http : SDK
+
+yargs --> http
+http --> routes
+routes --> bootstrap
+routes --> v1prompt
+routes --> sessionv2
+
+v1prompt --> v1tools
+v1prompt --> bridge
+bridge --> events
+
+sessionv2 --> input
+input --> events
+sessionv2 --> exec
+exec --> coord
+coord --> runner
+runner --> location
+runner --> tools
+runner --> llmcore
+events --> db
+input --> db
+
+bootstrap --> integrations
+bootstrap --> location
+llmcore --> providers
+
+@enduml

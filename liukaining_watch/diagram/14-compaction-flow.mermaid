@@ -1,0 +1,33 @@
+%% 自动 Compaction 流程
+
+flowchart TB
+  START["SessionRunner 每 provider turn 前"]
+  EST["估算 model-visible request token"]
+  BUDGET{"request > contextWindow - reserve?"}
+  RESERVE["reserve = max(outputAllowance, compaction.buffer)"]
+  COMPACT["发起 Compaction"]
+  CS["Event: compaction.started (durable)"]
+  SUM["Hidden agent 生成 rolling summary"]
+  CE["Event: compaction.ended (durable)<br/>含 summary + serialized recent context"]
+  EPOCH["请求 Context Epoch replacement"]
+  RELOAD["reload projected history"]
+  TURN["执行 pending provider turn"]
+  OVERFLOW["Provider 返回 context overflow"]
+  OFC["overflow-triggered compaction<br/>即使 estimate 未预测"]
+  FAIL["终端失败 — 不循环重试"]
+
+  START --> EST --> BUDGET
+  RESERVE -.-> BUDGET
+  BUDGET -->|否| TURN
+  BUDGET -->|是 且有旧 turn| COMPACT
+  COMPACT --> CS --> SUM --> CE --> EPOCH --> RELOAD --> TURN
+
+  TURN --> OVERFLOW
+  OVERFLOW --> OFC
+  OFC -->|成功| RELOAD
+  OFC -->|第二次 overflow / 不可用| FAIL
+
+  note["完整 transcript 保持 durable<br/>仅 active model representation 被 checkpoint 替换<br/>Provider-native reasoning 不跨 boundary 保留"]
+
+  style COMPACT fill:#fff3e0
+  style FAIL fill:#ffebee

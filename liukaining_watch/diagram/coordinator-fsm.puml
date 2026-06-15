@@ -1,0 +1,31 @@
+@startuml opencode-coordinator-fsm
+!theme plain
+title SessionRunCoordinator 状态机 (run-coordinator.ts)
+
+[*] --> Idle
+
+Idle --> Draining : run() / wake()
+
+Draining --> Draining : coalesced wake\n(合并为 pending rerun)
+Draining --> DrainingPending : run() 升级 pending
+DrainingPending --> Draining : 当前 chain 结束\n执行 coalesced rerun
+
+Draining --> Idle : drain 完成
+DrainingPending --> Idle : drain 完成
+
+Draining --> Interrupted : interrupt(seq)
+DrainingPending --> Interrupted : interrupt(seq)
+Interrupted --> Idle : cleanup 完成\nsuppress 旧 wake
+
+note right of Draining
+  每 Session ID 最多
+  一条 active drain chain
+  不同 Session 可并发
+end note
+
+note right of Idle
+  run = 显式 drain
+  wake = advisory\nresume:false 仅 admit 不 wake
+end note
+
+@enduml

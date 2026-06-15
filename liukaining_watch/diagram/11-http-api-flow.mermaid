@@ -1,0 +1,35 @@
+%% HTTP API 请求流程
+
+sequenceDiagram
+  autonumber
+  participant User as 用户/客户端
+  participant SDK as @opencode-ai/sdk
+  participant Server as HTTP Server<br/>opencode/server
+  participant Instance as Instance Bootstrap
+  participant Handler as Route Handler<br/>@opencode-ai/server
+  participant V1 as V1 Session API
+  participant V2 as SessionV2
+  participant Events as Event SSE
+
+  User->>SDK: 打开项目 / 发 prompt
+  SDK->>Server: HTTP + x-opencode-directory header
+
+  Note over Server,Instance: 实例解析
+  Server->>Instance: resolve directory → InstanceContext
+  Instance->>Instance: bootstrap(config, plugins, LSP, VCS)
+
+  alt TUI 默认路径 (V1)
+    SDK->>Handler: session message API
+    Handler->>V1: SessionPrompt.prompt()
+    V1->>V1: runLoop → Processor → LLM
+  else Server/Public API (V2)
+    SDK->>Handler: POST session.prompt
+    Handler->>V2: SessionV2.prompt()
+    V2->>V2: admit + wake
+  end
+
+  SDK->>Events: subscribe events/messages
+  Events-->>SDK: SSE 流式更新
+  SDK-->>User: UI 渲染
+
+  Note over Server: 默认端口 4096<br/>OpenAPI from PublicApi<br/>mDNS 可选发现

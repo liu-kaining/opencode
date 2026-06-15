@@ -1,0 +1,65 @@
+@startuml opencode-architecture-layers
+!theme plain
+skinparam packageStyle rectangle
+
+title OpenCode 架构分层
+
+package "L0 Clients" #E8EAF6 {
+  [CLI/TUI] [Web/Desktop] [SDK Integrations]
+}
+
+package "L1 Instance (opencode)" #E3F2FD {
+  [HTTP Server]
+  [Instance Bootstrap]
+  [InstanceContext per directory]
+}
+
+package "L2 Location-scoped (core)" #E0F2F1 {
+  [LocationServiceMap]
+  [Config Agent Catalog Plugin]
+  [ToolRegistry Permission]
+  [SessionRunner ModelResolver]
+  [FileSystem Watcher Pty]
+}
+
+package "L3 Session Orchestration" #F3E5F5 {
+  [SessionStore GLOBAL]
+  [SessionV2 SessionInput]
+  [SessionExecution GLOBAL]
+  [SessionRunCoordinator]
+  [SessionRunner per Location]
+}
+
+package "L4 Event Sourcing" #FCE4EC {
+  [EventV2]
+  [SessionProjector]
+  [Context Epoch]
+  database SQLite
+}
+
+package "L5 LLM" #FFF3E0 {
+  [@opencode-ai/llm]
+  [Provider Protocols]
+}
+
+package "L6 Tools" #E8F5E9 {
+  [Built-in Tools]
+  [MCP Plugin Tools]
+  [Permission evaluate/ask/deny]
+}
+
+"L0 Clients" --> "L1 Instance (opencode)"
+"L1 Instance (opencode)" --> "L2 Location-scoped (core)"
+"L1 Instance (opencode)" --> "L3 Session Orchestration"
+"L2 Location-scoped (core)" --> "L3 Session Orchestration"
+"L3 Session Orchestration" --> "L4 Event Sourcing"
+"L3 Session Orchestration" --> "L5 LLM"
+"L2 Location-scoped (core)" --> "L6 Tools"
+"L3 Session Orchestration" --> "L6 Tools"
+
+note bottom of "L3 Session Orchestration"
+  进程全局: SessionStore, SessionExecution
+  Location 作用域: Runner, Tools, Permissions
+end note
+
+@enduml

@@ -1,0 +1,66 @@
+@startuml opencode-data-flow
+!theme plain
+title OpenCode V2 核心数据流
+
+|Client|
+start
+:HTTP/SDK prompt 请求;
+
+|SessionV2|
+:SessionV2.prompt();
+:SessionInput.admit();
+:发布 PromptLifecycle.Admitted;
+:写入 session_input (durable inbox);
+
+if (resume !== false?) then (yes)
+  :SessionExecution.wake(sessionID);
+else (no)
+  :仅准入，不调度;
+  stop
+endif
+
+|SessionRunCoordinator|
+:合并 wake / 启动 drain 链;
+
+|SessionRunner|
+:检查 steer/queue pending;
+:failInterruptedTools();
+:promoteSteers 或 promoteNextQueued;
+:发布 PromptLifecycle.Promoted;
+:Context Epoch 初始化/对账;
+:加载 SessionHistory;
+:ToolRegistry.materialize(permissions);
+:构建 LLM request;
+
+|LLM|
+:llm.stream(request) — 一次 provider turn;
+
+while (stream events?) is (有事件)
+  if (text/reasoning delta?) then (yes)
+    :live-only 推送;
+  elseif (tool-call?) then (yes)
+    :发布 Tool.Input/Called;
+    :ToolRegistry.settle() 异步 fiber;
+    :发布 Tool.Success/Failed;
+    :tool-result 回注模型;
+  endif
+endwhile (结束)
+
+:await 所有 tool fibers;
+:reload projected history;
+
+if (需要继续? steps < 25?) then (yes)
+  backward :下一轮 provider turn;
+else (no)
+  :drain 结束;
+endif
+
+|EventV2 Projector|
+:同步事件在 DB 事务内投影;
+:更新 session_message / session;
+
+|Client|
+:events SSE 回放 / messages API;
+stop
+
+@enduml

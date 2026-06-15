@@ -1,0 +1,40 @@
+%% 内置 Agent 类型与权限模式
+
+flowchart LR
+  subgraph Primary["Primary Agents (可选为 Session Agent)"]
+    P1["build<br/>默认 · 全功能编码"]
+    P2["plan<br/>规划 · 受限 edit 范围"]
+  end
+
+  subgraph Hidden["Hidden Primary (内部)"]
+    H1["compaction"]
+    H2["title"]
+    H3["summary"]
+  end
+
+  subgraph Subagent["Subagents (仅通过 task 调用)"]
+    S1["general<br/>多步研究/任务"]
+    S2["explore<br/>只读代码探索"]
+  end
+
+  subgraph Selection["AgentV2.select() 规则"]
+    R1["mode !== subagent"]
+    R2["!hidden"]
+    R3["默认 build"]
+  end
+
+  subgraph Modes["mode 字段"]
+    M1["primary — UI 可选"]
+    M2["subagent — 排除默认选择和 @ 补全"]
+    M3["all — 特殊"]
+  end
+
+  Primary --> Selection
+  Hidden -.->|不可选| Selection
+  Subagent -->|task 工具| S1
+  Subagent -->|task 工具| S2
+
+  src["packages/core/src/plugin/agent.ts<br/>packages/core/src/agent.ts"]
+
+  style Subagent fill:#f3e5f5
+  style Hidden fill:#fafafa

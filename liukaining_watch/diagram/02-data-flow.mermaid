@@ -1,0 +1,73 @@
+%% OpenCode 核心数据流转图 (V2 路径 — 生产方向)
+
+flowchart LR
+  subgraph Admission["① 准入层 (Durable)"]
+    A1["Client 发送 prompt"]
+    A2["SessionV2.prompt()"]
+    A3["SessionInput.admit()"]
+    A4["Event: PromptLifecycle.Admitted"]
+    A5[("session_input 表<br/>durable inbox")]
+  end
+
+  subgraph Scheduling["② 调度层 (Advisory)"]
+    S1["SessionExecution.wake(sessionID)"]
+    S2["SessionRunCoordinator"]
+    S3["合并重复 wake<br/>处理 interrupt 边界"]
+  end
+
+  subgraph Execution["③ 执行层 (Location-scoped)"]
+    E1["SessionRunner.run()"]
+    E2["promoteSteers / promoteNextQueued"]
+    E3["Event: PromptLifecycle.Promoted"]
+    E4["Context Epoch 初始化/对账"]
+    E5["SessionHistory 加载投影历史"]
+    E6["ToolRegistry.materialize()"]
+    E7["llm.stream(request)"]
+  end
+
+  subgraph Stream["④ 流式处理"]
+    ST1["Text / Reasoning Delta<br/>(live-only)"]
+    ST2["Tool.Input / Tool.Called<br/>(durable)"]
+    ST3["ToolRegistry.settle()"]
+    ST4["Event: Tool.Success/Failed"]
+    ST5["tool-result → 模型"]
+  end
+
+  subgraph Projection["⑤ 投影层"]
+    P1["EventV2 同步事件<br/>DB 事务内投影"]
+    P2["SessionProjector"]
+    P3[("session_message 表")]
+    P4[("session 表")]
+  end
+
+  subgraph Read["⑥ 读路径"]
+    R1["SessionStore.get()"]
+    R2["SessionHistory.entriesForRunner()"]
+    R3["SessionV2.events() SSE 回放"]
+    R4["HTTP / SDK 客户端"]
+  end
+
+  A1 --> A2 --> A3 --> A4 --> A5
+  A2 --> S1 --> S2 --> S3 --> E1
+  E1 --> E2 --> E3
+  E2 --> E4 --> E5 --> E6 --> E7
+  E7 --> ST1
+  E7 --> ST2 --> ST3 --> ST4 --> ST5
+  ST5 --> E1
+  A4 --> P1
+  E3 --> P1
+  ST2 --> P1
+  ST4 --> P1
+  P1 --> P2 --> P3
+  P2 --> P4
+  P3 --> R2
+  P4 --> R1
+  P1 --> R3 --> R4
+  R2 --> E5
+
+  style Admission fill:#e8f4fd
+  style Scheduling fill:#fff3e0
+  style Execution fill:#f3e5f5
+  style Stream fill:#e8f5e9
+  style Projection fill:#fce4ec
+  style Read fill:#f5f5f5

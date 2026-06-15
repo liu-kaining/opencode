@@ -1,0 +1,51 @@
+@startuml opencode-v2-session-engine
+!theme plain
+title V2 Session 引擎组件图
+
+package "Process Global" {
+  [SessionStore] as store
+  [SessionExecution] as exec
+  [SessionRunCoordinator] as coord
+  [EventV2] as ev
+}
+
+package "Session API" {
+  [SessionV2] as sv2
+  [SessionInput] as input
+  [SessionHistory] as history
+  [SessionProjector] as proj
+}
+
+package "Location Scoped" {
+  [SessionRunner] as runner
+  [AgentV2] as agent
+  [ToolRegistry] as tools
+  [Context Epoch] as epoch
+  [SessionRunnerModel] as model
+}
+
+sv2 --> input : admit
+sv2 --> exec : wake/interrupt
+input --> ev : Admitted/Promoted
+exec --> coord
+coord --> runner : run(sessionID)
+exec --> store : get location
+store --> runner : provide Location layer
+
+runner --> input : promote
+runner --> history : load
+runner --> agent : select
+runner --> tools : materialize
+runner --> epoch : reconcile
+runner --> model : resolve
+
+ev --> proj
+proj --> history
+
+note as N1
+  SessionExecution 只接受 sessionID
+  通过 SessionStore 发现 Location
+  再 LocationServiceMap.get(location)
+end note
+
+@enduml

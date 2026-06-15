@@ -1,0 +1,59 @@
+@startuml opencode-subagent-flow
+!theme plain
+title 子 Agent 流程 (task 工具)
+
+|Primary Agent (build/plan)|
+start
+:收到用户任务;
+:决定委派子任务;
+:调用 task 工具;
+
+|TaskTool|
+:验证 subagent_type;
+if (agent.mode == subagent?) then (yes)
+else (no)
+  :拒绝;
+  stop
+endif
+
+if (子 Session 存在?) then (resume)
+else (create)
+  :创建 Session parentID=父ID;
+endif
+
+:deriveSubagentSessionPermission();
+note right
+  父 Session deny 规则继承
+  external_directory 继承
+  默认 deny todowrite/task
+end note
+
+if (background?) then (yes)
+  :返回 taskID 立即;
+  fork
+    |Subagent Session|
+    :SessionPrompt.prompt();
+    :独立 LLM 循环;
+    :完成;
+  fork again
+    |Primary Agent|
+    :继续其他工作;
+  end fork
+  :异步注入 synthetic result;
+else (no foreground)
+  |Subagent Session|
+  :SessionPrompt.prompt();
+  repeat
+    :LLM turn + tools;
+  repeat while (未完成?) is (yes)
+  ->no;
+  |TaskTool|
+  :收集子 Session 输出;
+endif
+
+|Primary Agent|
+:收到 tool-result;
+:继续主 Session;
+stop
+
+@enduml

@@ -1,0 +1,48 @@
+@startuml opencode-event-sourcing
+!theme plain
+title EventV2 事件溯源
+
+class "EventV2" as EV {
+  define(type, sync, schema)
+  publish(event)
+  subscribe(aggregate)
+  aggregateEvents(sessionID, after)
+  project(handler)
+  beforeCommit(guard)
+}
+
+class "Sync Event Pipeline" as SYNC {
+  beforeCommit guards
+  run projectors in transaction
+  insert event + bump seq
+  notify subscribers
+}
+
+class "SessionProjector" as PROJ {
+  Admitted → session_input
+  Promoted → user message
+  Step/Text/Tool → message updater
+}
+
+database "SQLite" as DB {
+  event
+  event_sequence
+  session_message
+  session_input
+}
+
+EV --> SYNC
+SYNC --> PROJ
+PROJ --> DB
+
+note right of EV
+  Live-only: Text.Delta, Reasoning.Delta
+  不持久化，仅实时推送
+end note
+
+note bottom of PROJ
+  同步事件 = aggregate(sessionID) + version
+  投影与事件写入同一事务
+end note
+
+@enduml

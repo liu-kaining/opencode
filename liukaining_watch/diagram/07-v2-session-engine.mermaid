@@ -1,0 +1,67 @@
+%% V2 Session 引擎内部协作
+
+flowchart TB
+  subgraph Global["进程全局 (无 Session ID 参数)"]
+    SS["SessionStore<br/>session/store.ts"]
+    SE["SessionExecution<br/>session/execution.ts"]
+    SC["SessionRunCoordinator<br/>session/run-coordinator.ts"]
+    EV["EventV2<br/>event.ts"]
+  end
+
+  subgraph SessionAPI["Session API"]
+    SV2["SessionV2<br/>session.ts"]
+    SI["SessionInput<br/>session/input.ts"]
+    SH["SessionHistory<br/>session/history.ts"]
+    SP["SessionProjector<br/>session/projector.ts"]
+  end
+
+  subgraph LocationScoped["Location 作用域 (via LocationServiceMap)"]
+    SR["SessionRunner<br/>runner/llm.ts"]
+    SRM["SessionRunnerModel<br/>runner/model.ts"]
+    AG["AgentV2<br/>agent.ts"]
+    TR["ToolRegistry<br/>tool/registry.ts"]
+    CE["Context Epoch<br/>session/context-epoch.ts"]
+    SCtx["System Context<br/>system-context/"]
+  end
+
+  subgraph Delivery["Delivery 模式"]
+    D1["steer (默认)<br/>合并到当前 activity<br/>下一 safe boundary 提升"]
+    D2["queue<br/>FIFO 未来 activity<br/>当前 activity 结束后"]
+  end
+
+  subgraph CoordinatorFSM["RunCoordinator 状态机"]
+    F1["idle"]
+    F2["draining"]
+    F3["draining + pending rerun"]
+    F1 -->|"run/wake"| F2
+    F2 -->|"coalesced wake"| F3
+    F3 --> F2
+    F2 -->|"complete"| F1
+  end
+
+  Client["Client"] --> SV2
+  SV2 --> SI
+  SV2 --> SE
+  SI --> EV
+  SE --> SC
+  SC --> SR
+  SE --> SS
+  SS -->|"location lookup"| SR
+
+  SR --> SI
+  SR --> SH
+  SR --> AG
+  SR --> TR
+  SR --> CE
+  SR --> SRM
+  CE --> SCtx
+
+  EV --> SP
+  SP --> SH
+
+  SI --> D1
+  SI --> D2
+
+  style Global fill:#fff3e0
+  style LocationScoped fill:#e8f5e9
+  style Delivery fill:#e3f2fd

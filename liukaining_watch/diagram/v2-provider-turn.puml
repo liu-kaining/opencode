@@ -1,0 +1,49 @@
+@startuml opencode-v2-provider-turn
+!theme plain
+title SessionRunner 单次 Provider Turn 内部 (runner/llm.ts)
+
+|SessionRunner|
+start
+:runTurnAttempt(sessionID);
+
+:校验 Session Location 未迁移;
+if (已 interrupt?) then (yes)
+  stop
+endif
+
+:AgentV2.select(session.agent);
+:Context Epoch initialize / reconcile;
+:promoteSteers 或 promoteNextQueued;
+:SessionHistory.entriesForRunner();
+:SessionCompaction.compactIfNeeded();
+
+:SessionRunnerModel.resolve();
+:ToolRegistry.materialize(permissions);
+:构建 LLM.request + toLLMMessages;
+
+|LLM|
+:llm.stream(request);
+
+|SessionRunner|
+while (stream event?) is (有)
+  if (text/reasoning delta) then
+    :EventV2 live-only publish;
+  elseif (tool-call) then
+    :publish Tool.Input / Called (durable);
+    :ToolRegistry.settle() → fiber;
+    :await fiber → Tool.Success/Failed;
+    :tool-result 回注 stream;
+  endif
+endwhile (结束)
+
+:await 所有 tool fibers;
+:reload projected history;
+
+if (需继续且 step < MAX_STEPS=25?) then (yes)
+  backward :下一 turn;
+else (no)
+  :return;
+  stop
+endif
+
+@enduml

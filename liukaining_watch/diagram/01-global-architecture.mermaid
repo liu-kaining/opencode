@@ -1,0 +1,101 @@
+%% OpenCode 全局架构图
+%% 渲染: mermaid.live 或 GitHub
+
+flowchart TB
+  subgraph Users["👤 用户入口"]
+    CLI["CLI<br/>opencode / bun dev"]
+    TUI["TUI 终端<br/>packages/tui"]
+    Web["Web UI<br/>packages/app"]
+    Desktop["Desktop<br/>packages/desktop"]
+    VSCode["VS Code 扩展<br/>sdks/vscode"]
+    SDK["外部集成<br/>@opencode-ai/sdk"]
+    Slack["Slack Bot<br/>packages/slack"]
+  end
+
+  subgraph LocalRuntime["🏠 本地运行时 packages/opencode"]
+    Yargs["yargs CLI<br/>src/index.ts"]
+    HTTPServer["HTTP Server :4096<br/>src/server/server.ts"]
+    HttpApi["HttpApi 路由<br/>@opencode-ai/server"]
+    Instance["Instance Bootstrap<br/>config / plugins / LSP / VCS"]
+    V1Session["V1 Session API<br/>session/prompt.ts"]
+    V1Tools["V1 ToolRegistry<br/>AI SDK 适配"]
+    Bridge["EventV2Bridge<br/>V1→V2 双写迁移"]
+    MCP["MCP 集成"]
+    LSP["LSP 集成"]
+  end
+
+  subgraph CoreEngine["⚙️ 核心引擎 @opencode-ai/core"]
+    SessionV2["SessionV2<br/>create / prompt / interrupt"]
+    SessionInput["SessionInput<br/>durable inbox"]
+    SessionExec["SessionExecution<br/>wake / resume / interrupt"]
+    Coordinator["SessionRunCoordinator<br/>每 Session 一条 drain"]
+    Runner["SessionRunner<br/>llm.stream 编排"]
+    EventV2["EventV2<br/>事件溯源"]
+    Projector["SessionProjector<br/>投影到读模型"]
+    LocationMap["LocationServiceMap<br/>按目录隔离服务"]
+    ToolReg["ToolRegistry<br/>工具物化与 settle"]
+    Perm["PermissionV2"]
+    Agent["AgentV2<br/>primary / subagent"]
+    SysCtx["System Context<br/>AGENTS.md / skills"]
+    DB[("SQLite + Drizzle")]
+  end
+
+  subgraph LLMStack["🤖 LLM 层 @opencode-ai/llm"]
+    LLMCore["LLM Core<br/>Effect Schema"]
+    Protocols["Protocols<br/>OpenAI / Anthropic / Gemini / Bedrock"]
+    Routes["Route Runtime"]
+  end
+
+  subgraph Cloud["☁️ 云端 (SST)"]
+    Console["Console<br/>auth / billing"]
+    Enterprise["Enterprise"]
+    Stats["Stats 分析"]
+    WebSite["Marketing/Docs<br/>packages/web"]
+  end
+
+  CLI --> Yargs
+  TUI --> SDK
+  Web --> SDK
+  Desktop --> SDK
+  VSCode --> SDK
+  Slack --> SDK
+  SDK --> HTTPServer
+
+  Yargs --> TUI
+  Yargs --> HTTPServer
+
+  HTTPServer --> HttpApi
+  HttpApi --> Instance
+  HttpApi --> V1Session
+  HttpApi --> SessionV2
+
+  V1Session --> V1Tools
+  V1Session --> Bridge
+  Bridge --> EventV2
+
+  SessionV2 --> SessionInput
+  SessionInput --> EventV2
+  SessionV2 --> SessionExec
+  SessionExec --> Coordinator
+  Coordinator --> Runner
+  Runner --> LocationMap
+  Runner --> ToolReg
+  Runner --> Agent
+  Runner --> SysCtx
+  Runner --> LLMCore
+  ToolReg --> Perm
+
+  EventV2 --> Projector
+  Projector --> DB
+  SessionInput --> DB
+
+  LLMCore --> Protocols
+  LLMCore --> Routes
+
+  Instance --> MCP
+  Instance --> LSP
+  Instance --> LocationMap
+
+  Console -.->|独立部署| Cloud
+  Enterprise -.-> Cloud
+  Stats -.-> Cloud

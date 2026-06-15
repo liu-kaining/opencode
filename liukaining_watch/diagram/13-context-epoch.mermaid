@@ -1,0 +1,57 @@
+%% Context Epoch — 系统上下文生命周期
+
+flowchart TB
+  subgraph Sources["Context Sources (System Context Registry)"]
+    S1["环境事实 + 主机日期"]
+    S2["AGENTS.md (global/upward)"]
+    S3["Selected Agent 可用 Skills 指引"]
+    S4["Location-wide 注册源"]
+  end
+
+  subgraph Epoch["Context Epoch (每 Session)"]
+    E1["Baseline — 不可变初始快照"]
+    E2["Snapshot — 结构化对比快照"]
+    E3["Chronological Updates — 模型隐藏的系统消息"]
+  end
+
+  subgraph Lifecycle["生命周期"]
+    L1["首次 prompt 准入后<br/>observe initial context"]
+    L2{"context 可用?"}
+    L3["initialize epoch"]
+    L4["execution 暂停<br/>prompt 保持 pending"]
+    L5["promote eligible input"]
+    L6["safe boundary reconcile"]
+    L7{"context 变化?"}
+    L8["发布 ContextUpdated<br/>advance snapshot 原子提交"]
+    L9["baseline + chronological → LLM request"]
+  end
+
+  subgraph Triggers["Epoch 替换触发"]
+    T1["Agent 切换"]
+    T2["Model 切换"]
+    T3["Compaction 完成"]
+    T4["Session Move → clear epoch"]
+  end
+
+  Sources --> L1
+  L1 --> L2
+  L2 -->|是| L3
+  L2 -->|否| L4
+  L3 --> E1
+  L3 --> E2
+  L5 --> L6 --> L7
+  L7 -->|是| L8 --> E3
+  L7 -->|否| L9
+  L8 --> L9
+  E1 --> L9
+  E3 --> L9
+
+  T1 --> L6
+  T2 --> L6
+  T3 --> L6
+  T4 --> E1
+
+  style Epoch fill:#f3e5f5
+  style Sources fill:#e8f5e9
+
+  ref["规格: specs/v2/session.md · specs/v2/instructions.md"]
